@@ -90,6 +90,7 @@ export default async function handler(req, res) {
     return res.status(500).json({
       success: false,
       error: err.message,
+      debug: process.env.SHOPIFY_ADMIN_TOKEN ? 'Token presente' : 'Token ausente',
     });
   }
 }
