@@ -661,9 +661,9 @@ function AnalyticsTab() {
     const until = new Date().toISOString().slice(0, 10);
     const qs    = `?since=${since}&until=${until}`;
     const [s, m, t] = await Promise.all([
-      fetch(`/api/analytics/sales${qs}`).then(r => r.json()).catch(() => null),
-      fetch(`/api/analytics/meta${qs}`).then(r => r.json()).catch(() => null),
-      fetch(`/api/analytics/tiktok${qs}`).then(r => r.json()).catch(() => null),
+      fetch(`/api/analytics?source=sales${qs.replace('?','&')}`).then(r => r.json()).catch(() => null),
+      fetch(`/api/analytics?source=meta${qs.replace('?','&')}`).then(r => r.json()).catch(() => null),
+      fetch(`/api/analytics?source=tiktok${qs.replace('?','&')}`).then(r => r.json()).catch(() => null),
     ]);
     setSales(s);
     setMeta(m);
@@ -1020,7 +1020,7 @@ function KlaviyoTab({ config }) {
     setLoading(true);
     setApiError('');
     try {
-      const res = await fetch('/api/klaviyo/templates');
+      const res = await fetch('/api/klaviyo?action=list');
       const json = await res.json();
       if (json.success && json.templates?.length > 0) setTemplates(json.templates);
       else if (!json.success) setApiError(json.error || 'Erro ao buscar templates.');
@@ -1034,7 +1034,7 @@ function KlaviyoTab({ config }) {
   async function openEdit(t) {
     setModal({ mode: 'edit', id: t.id, name: t.name, html: '<!-- carregando... -->' });
     try {
-      const res = await fetch(`/api/klaviyo/template?id=${t.id}`);
+      const res = await fetch(`/api/klaviyo?action=get&id=${t.id}`);
       const json = await res.json();
       if (json.success) setModal({ mode: 'edit', id: t.id, name: t.name, html: json.html });
       else setModal(m => ({ ...m, html: BLANK_HTML }));
@@ -1049,7 +1049,7 @@ function KlaviyoTab({ config }) {
     setSaving(true);
     try {
       const isEdit = modal.mode === 'edit';
-      const res = await fetch('/api/klaviyo/template', {
+      const res = await fetch('/api/klaviyo', {
         method: isEdit ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: modal.id, name: modal.name, html: modal.html }),
@@ -1075,7 +1075,7 @@ function KlaviyoTab({ config }) {
   async function deleteTemplate(t) {
     if (!window.confirm(`Excluir "${t.name}"? Esta ação não pode ser desfeita.`)) return;
     try {
-      const res = await fetch(`/api/klaviyo/template?id=${t.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/klaviyo?id=${t.id}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.success) setTemplates(prev => prev.filter(x => x.id !== t.id));
       else alert('Erro ao excluir: ' + json.error);
