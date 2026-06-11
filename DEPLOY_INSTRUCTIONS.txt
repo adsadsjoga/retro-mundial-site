@@ -1,0 +1,152 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    RETRO MUNDIAL — DEPLOY INSTRUCTIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+📋 COPIE E EXECUTE ESTES COMANDOS NA ORDEM:
+
+═══════════════════════════════════════════════════════════════════════════════
+PASSO 1: INSTALAR DEPENDÊNCIAS
+═══════════════════════════════════════════════════════════════════════════════
+
+npm install
+
+✅ Aguarde alguns minutos até terminar
+
+═══════════════════════════════════════════════════════════════════════════════
+PASSO 2: CRIAR ARQUIVO .env.local
+═══════════════════════════════════════════════════════════════════════════════
+
+cp .env.example .env.local
+
+Agora ABRA o arquivo .env.local em seu editor (VSCode, Sublime, etc):
+
+    No Windows: notepad .env.local
+    No Mac: nano .env.local
+
+E preencha com:
+
+═══════════════════════════════════════════════════════════════════════════════
+[COPIE E COLE NO .env.local]
+
+VITE_SHOPIFY_DOMAIN=shop.retromundial.com
+VITE_SHOPIFY_TOKEN=seu_token_shopify_aqui
+
+VITE_SUPABASE_URL=https://ysjszbbndltnyvaevwrh.supabase.co
+VITE_SUPABASE_KEY=sb_publishable_t2bedPDW3O43SexwDwWtCQ_VxDuLdSg
+
+═══════════════════════════════════════════════════════════════════════════════
+
+SALVE o arquivo e feche.
+
+═══════════════════════════════════════════════════════════════════════════════
+PASSO 3: TESTAR LOCALMENTE
+═══════════════════════════════════════════════════════════════════════════════
+
+npm run dev
+
+✅ Abra http://localhost:5173 no navegador
+✅ Verifique se o site carrega (hero "MOMENTS THAT MATTER")
+
+Para testar a conexão Shopify:
+→ Abra http://localhost:5173/api/shopify/test
+→ Deve retornar JSON com "success": true
+
+Se retornar erro, volte ao PASSO 2 e verifique o token Shopify.
+
+═══════════════════════════════════════════════════════════════════════════════
+PASSO 4: SETUP SUPABASE NO PAINEL
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Acesse https://supabase.com
+2. Faça login com sua conta GitHub (adsadsjoga)
+3. Clique "New project"
+4. Preencha:
+   - Project name: retro-mundial
+   - Database password: qualquer coisa forte
+   - Region: eu-west
+5. Clique "Create new project" → aguarde 2 min
+
+6. Quando conectar:
+   - Clique "Settings" (engrenagem esquerdo)
+   - Clique "API"
+   - COPIE:
+     * Project URL: https://ysjszbbndltnyvaevwrh.supabase.co
+     * anon key: sb_publishable_...
+     * service_role key: eyJhbGc... (GUARDE ISSO — VERCEL PRECISA)
+
+7. Clique "SQL Editor" → "New query"
+8. COPIE O CONTEÚDO DO ARQUIVO: api/supabase/schema.sql
+9. COLE no editor do Supabase
+10. Clique "Run"
+
+✅ Suas tabelas foram criadas!
+
+═══════════════════════════════════════════════════════════════════════════════
+PASSO 5: PUSH PARA GITHUB
+═══════════════════════════════════════════════════════════════════════════════
+
+git add .
+git commit -m "Setup: Shopify + Supabase + Vercel backend"
+git push origin main
+
+═══════════════════════════════════════════════════════════════════════════════
+PASSO 6: DEPLOY VERCEL
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Acesse https://vercel.com
+2. Clique "Add New" → "Project"
+3. Selecione: retro-mundial-site
+4. Preencha:
+   - Framework: Vite
+   - Build Command: npm run build
+   - Output Directory: dist
+5. Clique "Deploy" → aguarde 3 minutos
+
+6. Quando terminar, clique em "Settings" → "Environment Variables"
+
+7. ADICIONE TODAS ESTAS VARIÁVEIS:
+
+   Nome: VITE_SHOPIFY_DOMAIN
+   Valor: shop.retromundial.com
+
+   Nome: VITE_SHOPIFY_TOKEN
+   Valor: seu_token_shopify (copiado no PASSO 2)
+
+   Nome: VITE_SUPABASE_URL
+   Valor: https://ysjszbbndltnyvaevwrh.supabase.co
+
+   Nome: VITE_SUPABASE_KEY
+   Valor: sb_publishable_t2bedPDW3O43SexwDwWtCQ_VxDuLdSg
+
+   Nome: SUPABASE_URL
+   Valor: https://ysjszbbndltnyvaevwrh.supabase.co (mesmo que acima)
+
+   Nome: SUPABASE_KEY
+   Valor: eyJhbGc... (service_role_key do PASSO 4)
+
+8. Clique "Save"
+
+9. Volte para "Deployments"
+10. Clique nos 3 pontinhos → "Redeploy"
+
+═══════════════════════════════════════════════════════════════════════════════
+PASSO 7: VERIFICAR DEPLOYMENT
+═══════════════════════════════════════════════════════════════════════════════
+
+Abra a URL do seu site (será algo como):
+→ https://retro-mundial-site-adsadsjoga.vercel.app
+
+✅ Verifique se carrega
+✅ Clique no logo 5× para abrir o admin
+✅ Teste um "Add to Cart"
+
+═══════════════════════════════════════════════════════════════════════════════
+✅ PRONTO!
+
+Seu site está online com:
+  - Produtos do Shopify
+  - Carrinho persistente
+  - Admin funcional
+  - Backend pronto para webhooks, FAQ, análise, etc.
+
+═══════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,16 @@
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "env": [
+    "VITE_SHOPIFY_DOMAIN",
+    "VITE_SHOPIFY_TOKEN",
+    "VITE_SUPABASE_URL",
+    "VITE_SUPABASE_KEY",
+    "SHOPIFY_ADMIN_TOKEN",
+    "SUPABASE_URL",
+    "SUPABASE_KEY",
+    "ANTHROPIC_API_KEY"
+  ]
+}
