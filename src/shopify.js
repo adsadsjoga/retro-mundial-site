@@ -168,6 +168,8 @@ export function mergeWithLocalConfig(shopifyProducts, localProducts) {
     const local = localByHandle[shopify.handle];
     return {
       ...shopify,
+      // ativa/desativa produto no frontend (não controlado pelo Shopify)
+      active: local.active ?? true,
       // dados de apresentação locais (copy, badges, etc)
       name: local.name || shopify.title,
       country: local.country || '',
