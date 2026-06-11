@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   X, Lock, Settings, Save, Check, Package, Image, Percent,
   Zap, Globe, Plus, Trash2, ToggleLeft, ToggleRight, RefreshCw,
   Wand2, ChevronDown, ChevronUp, AlertCircle, ExternalLink, Users, Search,
+  Mail, Send, Bot, Eye, RefreshCcw,
 } from 'lucide-react';
 import { ImageUpload, generateCopy } from './shared';
 import { DEFAULT_CONFIG } from '../config';
@@ -52,6 +53,7 @@ export default function AdminPanel({ config, setConfig, resetConfig, onClose }) 
     { id: 'banner',       icon: Image,   label: 'Banner' },
     { id: 'discounts',    icon: Percent, label: 'Descontos' },
     { id: 'customers',    icon: Users,   label: 'Clientes' },
+    { id: 'klaviyo',      icon: Mail,    label: 'Klaviyo' },
     { id: 'integrations', icon: Zap,     label: 'Integrações' },
     { id: 'general',      icon: Settings,label: 'Geral' },
   ];
@@ -119,6 +121,7 @@ export default function AdminPanel({ config, setConfig, resetConfig, onClose }) 
           {tab === 'banner'       && <BannerTab        config={config} setConfig={setConfig} />}
           {tab === 'discounts'    && <DiscountsTab     config={config} setConfig={setConfig} />}
           {tab === 'customers'    && <CustomersTab     onClose={onClose} />}
+          {tab === 'klaviyo'      && <KlaviyoTab       config={config} />}
           {tab === 'integrations' && <IntegrationsTab  config={config} setConfig={setConfig} />}
           {tab === 'general'      && <GeneralTab       config={config} setConfig={setConfig} />}
         </div>
@@ -616,6 +619,250 @@ function GeneralTab({ config, setConfig }) {
           <span>Ative apenas com dados reais. Números fabricados violam a legislação de consumidor da UE e podem reprovar anúncios no Meta.</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── KLAVIYO ──────────────────────────────────────────────────────────────────
+
+const COMPANY_CONTEXT = `
+Empresa: Retro Mundial
+Produto: Camisetas oversized premium com temática de Copa do Mundo. Também bolsas retro.
+Público-alvo: Homens e mulheres de 25-45 anos, fãs de futebol e colecionadores.
+Preço: €36.99 por camiseta. Edição limitada de 500 unidades por design.
+Produtos: Brazil 2026, Argentina Legacy, Germany Precision, England Tradition, France Elegance, Spain Passion.
+Tom de voz: Premium, apaixonado, inclusivo e narrativo (storytelling). Tagline: "Moments That Matter".
+Cupons: RETRO15 (15% primeira compra), AGORA10 (10% carrinho abandonado), VOLTAAQUI20 (20% recompra).
+Site: retromundial.com
+`.trim();
+
+function KlaviyoTab({ config }) {
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [thinking, setThinking] = useState(false);
+  const chatEndRef = useRef(null);
+
+  useEffect(() => { loadTemplates(); }, []);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  async function loadTemplates() {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/klaviyo/templates');
+      const json = await res.json();
+      if (json.success) setTemplates(json.templates);
+    } catch (e) {
+      // fallback: show static list
+      setTemplates([
+        { id: 'T3AQbE', name: 'Retro Mundial - Welcome Email', updated: new Date().toISOString() },
+        { id: 'U2Fqhu', name: 'Retro Mundial - Abandoned Cart', updated: new Date().toISOString() },
+        { id: 'T9LACF', name: 'Retro Mundial - Post Purchase', updated: new Date().toISOString() },
+      ]);
+    }
+    setLoading(false);
+  }
+
+  function openReview(template) {
+    setSelectedTemplate(template);
+    setMessages([
+      {
+        role: 'assistant',
+        content: `Olá! Vou revisar o template **"${template.name}"** com base no contexto da Retro Mundial.\n\nDigite **/revisar** para eu analisar o template e dar sugestões detalhadas, ou me faça uma pergunta específica sobre copywriting, assunto, CTA ou estrutura.`,
+      },
+    ]);
+    setChatOpen(true);
+  }
+
+  async function sendMessage() {
+    if (!input.trim() || thinking) return;
+    const userMsg = input.trim();
+    setInput('');
+    const newMessages = [...messages, { role: 'user', content: userMsg }];
+    setMessages(newMessages);
+    setThinking(true);
+
+    try {
+      const isReview = userMsg.toLowerCase().includes('/revisar') || userMsg.toLowerCase().includes('revisar') || userMsg.toLowerCase().includes('analis');
+      const systemPrompt = `Você é um especialista em email marketing e copywriting para e-commerce de moda/esporte premium.
+Você está ajudando a equipe da Retro Mundial a melhorar seus templates de email no Klaviyo.
+
+CONTEXTO DA EMPRESA:
+${COMPANY_CONTEXT}
+
+TEMPLATE EM ANÁLISE: ${selectedTemplate?.name}
+
+REGRAS:
+- Responda sempre em português do Brasil.
+- Seja específico e prático — dê exemplos concretos de copy.
+- Foque em: linha de assunto (subject line), pré-header, CTA, urgência, personalização.
+- Quando sugerir melhorias, mostre a versão original E a versão melhorada.
+- Use o tom de voz da marca: premium, apaixonado, com narrativa de futebol/história.
+- Máximo 3-4 sugestões por vez para não sobrecarregar.`;
+
+      const res = await fetch('/api/ai-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+          system: systemPrompt,
+          anthropicKey: config.integrations?.anthropicKey,
+        }),
+      });
+
+      const json = await res.json();
+      if (json.content) {
+        setMessages(prev => [...prev, { role: 'assistant', content: json.content }]);
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: '❌ Erro ao conectar à IA. Verifique se a Claude API Key está configurada em Integrações.' }]);
+      }
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: '❌ Erro de rede. Tente novamente.' }]);
+    }
+    setThinking(false);
+  }
+
+  const templateIcons = {
+    'Welcome': '👋',
+    'Abandoned': '🛒',
+    'Post Purchase': '🏆',
+    'Re-engagement': '🔁',
+  };
+
+  function getIcon(name) {
+    for (const [k, v] of Object.entries(templateIcons)) {
+      if (name.includes(k)) return v;
+    }
+    return '📧';
+  }
+
+  return (
+    <div className="flex gap-6 h-full">
+      {/* LISTA DE TEMPLATES */}
+      <div className={chatOpen ? 'w-72 flex-shrink-0' : 'flex-1 max-w-2xl'}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-xl font-black">Klaviyo — Email Templates</h3>
+            <p className="text-gray-400 text-sm mt-0.5">{templates.length} templates criados</p>
+          </div>
+          <button onClick={loadTemplates} className="text-gray-500 hover:text-white p-1.5 transition" title="Recarregar">
+            <RefreshCcw size={15} />
+          </button>
+        </div>
+
+        {/* CONFIG HINT */}
+        {!config.integrations?.anthropicKey && (
+          <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-sm text-xs text-amber-400 flex gap-2">
+            <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+            <span>Adicione a <strong>Claude API Key</strong> em Integrações para usar a revisão com IA.</span>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {loading ? (
+            <div className="text-gray-500 text-sm text-center py-8">Carregando templates...</div>
+          ) : (
+            templates.map(t => (
+              <div key={t.id}
+                className={`bg-gray-900 border rounded-sm p-4 transition-colors ${selectedTemplate?.id === t.id && chatOpen ? 'border-amber-500' : 'border-gray-800'}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <span className="text-2xl flex-shrink-0">{getIcon(t.name)}</span>
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm text-white truncate">{t.name}</div>
+                      <div className="text-gray-500 text-xs mt-0.5">ID: {t.id}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                    <a href={`https://www.klaviyo.com/email-editor/template/${t.id}`} target="_blank" rel="noreferrer"
+                      className="text-gray-600 hover:text-white p-1 transition" title="Abrir no Klaviyo">
+                      <Eye size={14} />
+                    </a>
+                    <button onClick={() => openReview(t)}
+                      className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-3 py-1.5 rounded-sm transition-colors">
+                      <Bot size={12} /> Revisar com IA
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="mt-4 p-3 bg-gray-900 border border-gray-800 rounded-sm text-xs text-gray-500">
+          <p className="font-bold text-gray-400 mb-1">Flows recomendados no Klaviyo:</p>
+          <ul className="space-y-1">
+            <li>• Welcome Series → trigger: List joined</li>
+            <li>• Abandoned Cart → trigger: Started Checkout</li>
+            <li>• Post Purchase → trigger: Placed Order</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* CHAT DE REVISÃO COM IA */}
+      {chatOpen && (
+        <div className="flex-1 flex flex-col bg-gray-900 border border-gray-800 rounded-sm overflow-hidden">
+          {/* Chat Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-950">
+            <div className="flex items-center gap-2">
+              <Bot size={16} className="text-purple-400" />
+              <span className="font-bold text-sm">Revisão IA — {selectedTemplate?.name}</span>
+            </div>
+            <button onClick={() => { setChatOpen(false); setSelectedTemplate(null); setMessages([]); }}
+              className="text-gray-500 hover:text-white transition"><X size={16} /></button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${msg.role === 'user' ? 'bg-amber-500 text-black' : 'bg-purple-600 text-white'}`}>
+                  {msg.role === 'user' ? 'A' : <Bot size={14} />}
+                </div>
+                <div className={`max-w-[80%] text-sm rounded-sm px-3 py-2 leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'bg-amber-500/20 text-white' : 'bg-gray-800 text-gray-200'}`}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {thinking && (
+              <div className="flex gap-3">
+                <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center"><Bot size={14} className="text-white" /></div>
+                <div className="bg-gray-800 text-gray-400 text-sm px-3 py-2 rounded-sm">Analisando...</div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Quick Prompts */}
+          <div className="px-4 pt-3 flex gap-2 flex-wrap border-t border-gray-800">
+            {['/revisar', 'Melhore o assunto', 'Melhore o CTA', 'Adicione urgência'].map(p => (
+              <button key={p} onClick={() => { setInput(p); }}
+                className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2.5 py-1 rounded-sm transition-colors">
+                {p}
+              </button>
+            ))}
+          </div>
+
+          {/* Input */}
+          <div className="p-4 pt-2 flex gap-2">
+            <input
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+              placeholder="Pergunte sobre o template... (Enter para enviar)"
+              className={iCls + ' flex-1'}
+              disabled={thinking}
+            />
+            <button onClick={sendMessage} disabled={thinking || !input.trim()}
+              className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white p-2 rounded-sm transition-colors">
+              <Send size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
