@@ -636,12 +636,13 @@ Cupons: RETRO15 (15% primeira compra), AGORA10 (10% carrinho abandonado), VOLTAA
 Site: retromundial.com
 `.trim();
 
+const STATIC_TEMPLATES = [
+  { id: 'T3AQbE', name: 'Retro Mundial - Welcome Email' },
+  { id: 'U2Fqhu', name: 'Retro Mundial - Abandoned Cart' },
+  { id: 'T9LACF', name: 'Retro Mundial - Post Purchase' },
+];
+
 function KlaviyoTab({ config }) {
-  const STATIC_TEMPLATES = [
-    { id: 'T3AQbE', name: 'Retro Mundial - Welcome Email', updated: '' },
-    { id: 'U2Fqhu', name: 'Retro Mundial - Abandoned Cart', updated: '' },
-    { id: 'T9LACF', name: 'Retro Mundial - Post Purchase', updated: '' },
-  ];
   const [templates, setTemplates] = useState(STATIC_TEMPLATES);
   const [loading, setLoading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -651,7 +652,6 @@ function KlaviyoTab({ config }) {
   const [thinking, setThinking] = useState(false);
   const chatEndRef = useRef(null);
 
-  useEffect(() => { loadTemplates(); }, []);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   async function loadTemplates() {
@@ -659,15 +659,8 @@ function KlaviyoTab({ config }) {
     try {
       const res = await fetch('/api/klaviyo/templates');
       const json = await res.json();
-      if (json.success) setTemplates(json.templates);
-    } catch (e) {
-      // fallback: show static list
-      setTemplates([
-        { id: 'T3AQbE', name: 'Retro Mundial - Welcome Email', updated: new Date().toISOString() },
-        { id: 'U2Fqhu', name: 'Retro Mundial - Abandoned Cart', updated: new Date().toISOString() },
-        { id: 'T9LACF', name: 'Retro Mundial - Post Purchase', updated: new Date().toISOString() },
-      ]);
-    }
+      if (json.success && json.templates?.length > 0) setTemplates(json.templates);
+    } catch {}
     setLoading(false);
   }
 
