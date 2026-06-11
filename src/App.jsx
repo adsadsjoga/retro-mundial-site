@@ -8,6 +8,7 @@ import AdminPanel from './components/Admin';
 import HomePage from './pages/Home';
 import ShopPage from './pages/Shop';
 import ProductPage from './pages/Product';
+import CustomersPage from './pages/Customers';
 import { ExternalLink } from 'lucide-react';
 
 // ─── META PIXEL ───────────────────────────────────────────────────────────────
@@ -177,6 +178,9 @@ export default function App() {
               </button>
             </div>
           </div>
+        )}
+        {page === 'customers' && (
+          <CustomersPage />
         )}
       </main>
 
