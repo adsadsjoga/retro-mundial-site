@@ -26,7 +26,6 @@ const PRODUCTS_QUERY = `
                 id
                 title
                 availableForSale
-                quantityAvailable
                 price { amount currencyCode }
                 compareAtPrice { amount currencyCode }
                 selectedOptions { name value }
@@ -135,7 +134,9 @@ export async function fetchShopifyProducts(domain, token) {
       name: node.title,
       price,
       compareAtPrice: compareAt > price ? compareAt : null,
-      stock: variantsRaw.reduce((s, v) => s + (v.quantityAvailable || 0), 0),
+      // quantityAvailable exige scope unauthenticated_read_product_inventory — sem ele,
+      // o stock real fica null e o merge mantém o stock do config local
+      stock: null,
       images,
       variants,
       _fromShopify: true,
@@ -163,7 +164,7 @@ export function mergeWithLocalConfig(shopifyProducts, localProducts) {
       shopifyProductId: shopify.shopifyProductId,
       price: shopify.price,
       compareAtPrice: shopify.compareAtPrice ?? local.compareAtPrice,
-      stock: shopify.stock,
+      stock: shopify.stock ?? local.stock,
       images: shopify.images.length ? shopify.images : local.images,
       // Variantes do Shopify substituem as locais (mas mantém hex/nome editados localmente)
       variants: shopify.variants.map(sv => {
