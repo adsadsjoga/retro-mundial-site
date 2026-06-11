@@ -16,7 +16,7 @@ export const DEFAULT_CONFIG = {
     klaviyoFormId: '',
     // Shopify Storefront API — gere em: Shopify Admin → Settings → Apps → Develop apps
     shopifyDomain: 'w3vhuq-dy.myshopify.com', // domínio canónico — o custom dá 301 na API
-    shopifyToken: '',                         // Storefront API access token (quando pegar)
+    shopifyToken: 'c688c7df2fb623cf9fd3753647d6974f', // Storefront API public token (seguro no frontend)
     // Cloudinary — cloudinary.com (grátis)
     cloudinaryCloud: 'dsyupplhx',
     cloudinaryPreset: 'retromundial_uploads',

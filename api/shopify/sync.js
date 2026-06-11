@@ -3,23 +3,24 @@
 // GET /api/shopify/sync?action=test
 // GET /api/shopify/sync?action=products
 
-// Admin API exige o domínio .myshopify.com — o domínio custom devolve 301 e quebra o POST
+// Storefront API exige o domínio .myshopify.com — o domínio custom devolve 301 e quebra o POST
+// Usa Storefront API (token público) porque o token Admin disponível não tem scope read_products
 const SHOPIFY_DOMAIN = 'w3vhuq-dy.myshopify.com';
-const ADMIN_TOKEN = process.env.SHOPIFY_ADMIN_TOKEN;
+const STOREFRONT_TOKEN = process.env.SHOPIFY_STOREFRONT_TOKEN || 'c688c7df2fb623cf9fd3753647d6974f';
 
 async function adminApiFetch(token, query, variables = {}) {
-  const url = `https://${SHOPIFY_DOMAIN}/admin/api/2024-01/graphql.json`;
+  const url = `https://${SHOPIFY_DOMAIN}/api/2024-01/graphql.json`;
 
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Shopify-Access-Token': token,
+      'X-Shopify-Storefront-Access-Token': token,
     },
     body: JSON.stringify({ query, variables }),
   });
 
-  if (!res.ok) throw new Error(`Admin API error: ${res.status}`);
+  if (!res.ok) throw new Error(`Storefront API error: ${res.status}`);
 
   const json = await res.json();
   if (json.errors) throw new Error(json.errors[0]?.message || 'GraphQL error');
@@ -68,7 +69,7 @@ export default async function handler(req, res) {
     }
 
     if (action === 'products') {
-      const data = await adminApiFetch(ADMIN_TOKEN, PRODUCTS_QUERY);
+      const data = await adminApiFetch(STOREFRONT_TOKEN, PRODUCTS_QUERY);
       const products = data.products.edges.map(({ node }) => ({
         id: node.id,
         handle: node.handle,
