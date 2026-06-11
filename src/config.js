@@ -18,8 +18,8 @@ export const DEFAULT_CONFIG = {
     shopifyDomain: 'shop.retromundial.com',  // seu domínio customizado
     shopifyToken: '',                        // Storefront API access token (quando pegar)
     // Cloudinary — cloudinary.com (grátis)
-    cloudinaryCloud: '',   // Cloud name
-    cloudinaryPreset: '',  // Upload preset (unsigned)
+    cloudinaryCloud: 'dsyupplhx',
+    cloudinaryPreset: 'retromundial_uploads',
     // Claude API (para copywriting IA — precisa de backend em produção)
     anthropicKey: '',
   },
