@@ -59,26 +59,63 @@ export default async function handler(req, res) {
       // Nova venda!
       const email = order.customer?.email;
       const totalPrice = parseFloat(order.total_price);
-      const lineItems = order.line_items.map(item => ({
-        product: item.product_id,
-        title: item.title,
-        qty: item.quantity,
-        price: item.price,
-      }));
 
-      // Atualizar stage do customer para "purchased"
+      // 1. Criar registro de order
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          shopify_order_id: order.id.toString(),
+          customer_email: email,
+          total_price: totalPrice,
+          status: 'pending',
+          financial_status: order.financial_status,
+          fulfillment_status: order.fulfillment_status,
+          created_at: order.created_at,
+          updated_at: new Date(),
+        })
+        .select();
+
+      if (orderError) console.error('Order insert error:', orderError);
+      const orderId = orderData?.[0]?.id;
+
+      // 2. Inserir items do pedido
+      if (orderId && order.line_items.length > 0) {
+        const items = order.line_items.map(item => ({
+          order_id: orderId,
+          product_id: item.product_id?.toString(),
+          product_title: item.title,
+          variant_title: item.variant_title,
+          quantity: item.quantity,
+          price: parseFloat(item.price),
+        }));
+
+        const { error: itemsError } = await supabase.from('order_items').insert(items);
+        if (itemsError) console.error('Order items error:', itemsError);
+      }
+
+      // 3. Registrar evento
+      await supabase.from('customer_events').insert({
+        customer_email: email,
+        event_type: 'purchase',
+        event_data: {
+          order_id: order.id,
+          total: totalPrice,
+          items_count: order.line_items.length,
+        },
+      });
+
+      // 4. Atualizar stage do customer para "purchased"
       const { error: updateError } = await supabase.from('customers').update({
         stage: 'purchased',
         first_purchase_at: order.created_at,
         total_spent: totalPrice,
-        last_order_id: order.id,
+        last_order_date: order.created_at,
         updated_at: new Date(),
       }).eq('email', email);
 
       if (updateError) console.error('Customer update error:', updateError);
 
-      // Salvar no analytics (opcional)
-      console.log(`✅ VENDA REGISTRADA: ${email} — €${totalPrice} — ${lineItems.length} items`);
+      console.log(`✅ VENDA REGISTRADA: ${email} — €${totalPrice} — ${order.line_items.length} items`);
     }
 
     if (topic === 'orders/cancelled') {
