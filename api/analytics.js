@@ -2,7 +2,15 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+// init preguiçoso — se as env vars faltarem, só o source=sales cai no mock,
+// em vez de derrubar a função inteira (incluindo meta/tiktok)
+let supabase = null;
+function getSupabase() {
+  if (!supabase && process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
+    supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+  }
+  return supabase;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -149,16 +157,18 @@ async function handleSales(req, res, since, until) {
   const startDate = since ? new Date(since).toISOString() : new Date(Date.now() - 30*86400000).toISOString();
   const endDate   = until ? new Date(until + 'T23:59:59Z').toISOString() : new Date().toISOString();
   try {
-    const { data: orders, error } = await supabase
+    const sb = getSupabase();
+    if (!sb) throw new Error('Supabase não configurado');
+    const { data: orders, error } = await sb
       .from('orders').select('id,total_price,status,created_at,customer_email')
       .gte('created_at', startDate).lte('created_at', endDate).order('created_at', { ascending: true });
     if (error) throw error;
 
-    const { count: newCustomers } = await supabase
+    const { count: newCustomers } = await sb
       .from('customers').select('*', { count: 'exact', head: true })
       .gte('created_at', startDate).lte('created_at', endDate);
 
-    const { data: pipeline } = await supabase.from('customers').select('stage').not('stage', 'is', null);
+    const { data: pipeline } = await sb.from('customers').select('stage').not('stage', 'is', null);
     const stages = { visitor:0, cart_abandoned:0, purchased:0, completed:0, cancelled:0 };
     (pipeline||[]).forEach(c => { if (stages[c.stage]!==undefined) stages[c.stage]++; });
 
