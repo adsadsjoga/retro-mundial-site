@@ -1,32 +1,10 @@
 // ─── SHOPIFY ADMIN API SYNC ───────────────────────────────────────────────────
-// Usa Client ID + Secret para gerar token e buscar produtos automaticamente
+// Usa App automation token para buscar produtos automaticamente
 // GET /api/shopify/sync?action=test
 // GET /api/shopify/sync?action=products
 
 const SHOPIFY_DOMAIN = 'shop.retromundial.com';
-const CLIENT_ID = 'ffb985ad584b9f1f3aee3c23d780f510';
-const CLIENT_SECRET = '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';
-
-async function getAccessToken() {
-  const url = `https://${SHOPIFY_DOMAIN}/admin/oauth/access_tokens`;
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`OAuth failed (${res.status}): ${text}`);
-  }
-
-  const { access_token } = await res.json();
-  return access_token;
-}
+const ADMIN_TOKEN = process.env.SHOPIFY_ADMIN_TOKEN;
 
 async function adminApiFetch(token, query, variables = {}) {
   const url = `https://${SHOPIFY_DOMAIN}/admin/api/2024-01/graphql.json`;
@@ -80,18 +58,16 @@ export default async function handler(req, res) {
   const action = req.query.action || 'test';
 
   try {
-    const token = await getAccessToken();
-
     if (action === 'test') {
       return res.status(200).json({
         success: true,
-        message: 'OAuth authentication successful',
-        token: token.substring(0, 20) + '...',
+        message: 'Shopify Admin API connected',
+        domain: SHOPIFY_DOMAIN,
       });
     }
 
     if (action === 'products') {
-      const data = await adminApiFetch(token, PRODUCTS_QUERY);
+      const data = await adminApiFetch(ADMIN_TOKEN, PRODUCTS_QUERY);
       const products = data.products.edges.map(({ node }) => ({
         id: node.id,
         handle: node.handle,
