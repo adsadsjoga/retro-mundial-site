@@ -645,6 +645,243 @@ function daysAgoStr(n) {
   return d.toISOString().slice(0, 10);
 }
 
+// ─── CAMPAIGN DRAWER ──────────────────────────────────────────────────────────
+
+function CampaignDrawer({ campaign, period, onClose }) {
+  const [daily,    setDaily]   = useState([]);
+  const [loading,  setLoading] = useState(true);
+  const [aiText,   setAiText]  = useState('');
+  const [aiLoad,   setAiLoad]  = useState(false);
+  const [metric,   setMetric]  = useState('spend'); // spend | impressions | clicks | conversions
+
+  const since = daysAgoStr(period);
+  const until = new Date().toISOString().slice(0,10);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      setDaily([]);
+      setAiText('');
+      const source = campaign.platform === 'meta' ? 'meta-daily' : 'tiktok-daily';
+      const r = await fetch(`/api/analytics?source=${source}&campaign_id=${campaign.id}&since=${since}&until=${until}`)
+        .then(x => x.json()).catch(() => null);
+      const days = r?.daily || [];
+      setDaily(days);
+      setLoading(false);
+      if (days.length > 0) runAI(days);
+    }
+    load();
+  }, [campaign.id, period]);
+
+  async function runAI(days) {
+    setAiLoad(true);
+    const totalSpend = days.reduce((s,d) => s + d.spend, 0);
+    const totalRev   = days.reduce((s,d) => s + d.revenue, 0);
+    const totalConv  = days.reduce((s,d) => s + d.conversions, 0);
+    const totalClk   = days.reduce((s,d) => s + d.clicks, 0);
+    const totalImpr  = days.reduce((s,d) => s + d.impressions, 0);
+    const roas = totalSpend > 0 ? (totalRev / totalSpend).toFixed(2) : 0;
+    const ctr  = totalImpr  > 0 ? ((totalClk / totalImpr)*100).toFixed(2) : 0;
+    const cvr  = totalClk   > 0 ? ((totalConv / totalClk)*100).toFixed(2) : 0;
+    const cpa  = totalConv  > 0 ? (totalSpend / totalConv).toFixed(2) : 0;
+
+    // últimos 3 vs primeiros 3 para detectar tendência
+    const trend = days.length >= 6 ? (() => {
+      const first3 = days.slice(0,3).reduce((s,d) => s+d.spend,0);
+      const last3  = days.slice(-3).reduce((s,d) => s+d.spend,0);
+      return last3 > first3 ? 'crescendo' : 'diminuindo';
+    })() : 'estável';
+
+    const prompt = `Analisa esta campanha de Facebook/Meta Ads da Retro Mundial (camisetas de futebol premium):
+
+Campanha: "${campaign.name}"
+Período: últimos ${period} dias
+Métricas:
+- Ad Spend: €${totalSpend.toFixed(2)}
+- Receita: €${totalRev.toFixed(2)}
+- ROAS: ${roas}x
+- Impressões: ${totalImpr.toLocaleString()}
+- Cliques: ${totalClk.toLocaleString()}
+- CTR: ${ctr}%
+- Conversões: ${totalConv}
+- CVR (click→compra): ${cvr}%
+- CPA: €${cpa}
+- Tendência de spend: ${trend}
+
+Dá uma análise direta e acionável em português. Responde em 3 partes:
+1. DIAGNÓSTICO: está indo bem, mal ou ok? (1-2 frases)
+2. PROBLEMAS: o que está fraco (máx 2 pontos)
+3. AÇÕES: o que fazer agora (máx 2 pontos concretos)
+
+Sê direto, específico e usa números. Máx 120 palavras total.`;
+
+    try {
+      const r = await fetch('/api/ai-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
+      });
+      const d = await r.json();
+      setAiText(d.content || d.error || 'Erro na análise.');
+    } catch { setAiText('Erro ao conectar com IA.'); }
+    setAiLoad(false);
+  }
+
+  const roas = campaign.spend > 0 ? campaign.revenue / campaign.spend : 0;
+  const ctr  = campaign.impressions > 0 ? ((campaign.clicks / campaign.impressions)*100) : 0;
+  const cvr  = campaign.clicks > 0 ? ((campaign.conversions / campaign.clicks)*100) : 0;
+
+  // SVG line chart
+  const chartW = 600; const chartH = 120;
+  const vals = daily.map(d => d[metric] ?? 0);
+  const maxV = Math.max(...vals, 1);
+  const pts  = vals.map((v, i) => {
+    const x = vals.length > 1 ? (i / (vals.length - 1)) * chartW : chartW / 2;
+    const y = chartH - (v / maxV) * chartH;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+
+  const metricColors = { spend: '#F59E0B', impressions: '#60a5fa', clicks: '#34d399', conversions: '#a78bfa' };
+  const metricLabels = { spend: 'Spend (€)', impressions: 'Impressões', clicks: 'Cliques', conversions: 'Conversões' };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex">
+      {/* backdrop */}
+      <div className="flex-1 bg-black/60" onClick={onClose} />
+      {/* drawer */}
+      <div className="w-full max-w-2xl bg-gray-950 border-l border-gray-800 flex flex-col overflow-y-auto">
+        {/* header */}
+        <div className="flex items-start justify-between p-5 border-b border-gray-800 flex-shrink-0">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`text-xs font-bold px-2 py-0.5 rounded ${campaign.platform === 'meta' ? 'bg-blue-900/60 text-blue-300' : 'bg-pink-900/60 text-pink-300'}`}>
+                {campaign.platform === 'meta' ? 'Meta' : 'TikTok'}
+              </span>
+              {campaign.mock && <span className="text-xs text-amber-500/70 bg-amber-500/10 px-2 py-0.5 rounded">dados simulados</span>}
+            </div>
+            <h3 className="font-black text-lg text-white leading-tight">{campaign.name}</h3>
+            <p className="text-gray-500 text-xs mt-0.5">Últimos {period} dias · {daily.length} pontos de dados</p>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white p-1"><X size={20} /></button>
+        </div>
+
+        <div className="p-5 space-y-5">
+          {/* KPI GRID */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Ad Spend',    value: fmtEur(campaign.spend),       color: 'text-white' },
+              { label: 'Receita',     value: fmtEur(campaign.revenue),     color: 'text-amber-400' },
+              { label: 'ROAS',        value: roas > 0 ? roas.toFixed(1)+'x' : '—', color: roas >= 3 ? 'text-green-400' : roas >= 1 ? 'text-amber-400' : 'text-red-400' },
+              { label: 'Impressões',  value: fmtK(campaign.impressions),   color: 'text-blue-400' },
+              { label: 'CTR',         value: ctr.toFixed(2)+'%',           color: ctr >= 1.5 ? 'text-green-400' : ctr >= 0.8 ? 'text-amber-400' : 'text-red-400' },
+              { label: 'Conversões',  value: fmt(campaign.conversions),    color: 'text-purple-400' },
+              { label: 'Cliques',     value: fmtK(campaign.clicks),        color: 'text-teal-400' },
+              { label: 'CVR',         value: cvr.toFixed(2)+'%',           color: cvr >= 2 ? 'text-green-400' : cvr >= 0.5 ? 'text-amber-400' : 'text-red-400' },
+              { label: 'CPC',         value: fmtEur(campaign.cpc),         color: 'text-white' },
+            ].map((k, i) => (
+              <div key={i} className="bg-gray-900 border border-gray-800 rounded-sm p-3">
+                <p className="text-xs text-gray-500 mb-0.5">{k.label}</p>
+                <p className={`text-xl font-black ${k.color}`}>{k.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* GRÁFICO DE TEMPO */}
+          <div className="bg-gray-900 border border-gray-800 rounded-sm p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-bold text-sm">Performance ao Longo do Tempo</h4>
+              <div className="flex gap-1">
+                {Object.entries(metricLabels).map(([key, label]) => (
+                  <button key={key} onClick={() => setMetric(key)}
+                    className={`text-xs px-2 py-1 rounded transition-colors font-semibold ${metric === key ? 'text-black' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+                    style={metric === key ? { background: metricColors[key] } : {}}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="h-32 flex items-center justify-center text-gray-600 text-sm">
+                <RefreshCw size={16} className="animate-spin mr-2" /> Carregando...
+              </div>
+            ) : daily.length > 1 ? (
+              <>
+                <svg viewBox={`0 0 ${chartW} ${chartH + 20}`} className="w-full" style={{ height: 140 }}>
+                  {/* grade horizontal */}
+                  {[0.25, 0.5, 0.75, 1].map(r => (
+                    <line key={r} x1="0" y1={(chartH * (1-r)).toFixed(1)} x2={chartW} y2={(chartH * (1-r)).toFixed(1)}
+                      stroke="#1f2937" strokeWidth="1" />
+                  ))}
+                  {/* área preenchida */}
+                  <defs>
+                    <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={metricColors[metric]} stopOpacity="0.3" />
+                      <stop offset="100%" stopColor={metricColors[metric]} stopOpacity="0.02" />
+                    </linearGradient>
+                  </defs>
+                  {vals.length > 1 && (
+                    <polygon
+                      points={`0,${chartH} ${pts} ${chartW},${chartH}`}
+                      fill="url(#lineGrad)"
+                    />
+                  )}
+                  {/* linha */}
+                  <polyline points={pts} fill="none" stroke={metricColors[metric]} strokeWidth="2" strokeLinejoin="round" />
+                  {/* pontos */}
+                  {vals.map((v, i) => {
+                    const x = vals.length > 1 ? (i / (vals.length - 1)) * chartW : chartW / 2;
+                    const y = chartH - (v / maxV) * chartH;
+                    return <circle key={i} cx={x.toFixed(1)} cy={y.toFixed(1)} r="3" fill={metricColors[metric]} opacity="0.8" />;
+                  })}
+                  {/* datas */}
+                  {daily.length > 0 && (
+                    <>
+                      <text x="0"      y={chartH+16} fontSize="10" fill="#6b7280">{daily[0]?.date?.slice(5)}</text>
+                      <text x={chartW} y={chartH+16} fontSize="10" fill="#6b7280" textAnchor="end">{daily[daily.length-1]?.date?.slice(5)}</text>
+                    </>
+                  )}
+                </svg>
+                <div className="flex justify-between text-xs text-gray-600 mt-1">
+                  <span>Mín: <strong style={{ color: metricColors[metric] }}>{metric === 'spend' || metric === 'revenue' ? fmtEur(Math.min(...vals)) : fmt(Math.min(...vals))}</strong></span>
+                  <span>Méd: <strong style={{ color: metricColors[metric] }}>{metric === 'spend' || metric === 'revenue' ? fmtEur(vals.reduce((a,b)=>a+b,0)/vals.length) : fmt(Math.round(vals.reduce((a,b)=>a+b,0)/vals.length))}</strong></span>
+                  <span>Máx: <strong style={{ color: metricColors[metric] }}>{metric === 'spend' || metric === 'revenue' ? fmtEur(Math.max(...vals)) : fmt(Math.max(...vals))}</strong></span>
+                </div>
+              </>
+            ) : (
+              <div className="h-32 flex items-center justify-center text-gray-600 text-sm">Sem dados suficientes</div>
+            )}
+          </div>
+
+          {/* ANÁLISE IA */}
+          <div className="bg-gray-900 border border-gray-800 rounded-sm p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Bot size={16} className="text-amber-500" />
+              <h4 className="font-bold text-sm">Análise IA</h4>
+              {aiLoad && <RefreshCw size={12} className="animate-spin text-gray-500" />}
+              {!aiLoad && !aiText && (
+                <button onClick={() => runAI(daily)} className="text-xs text-amber-500 hover:text-amber-400 ml-auto">Analisar</button>
+              )}
+              {!aiLoad && aiText && (
+                <button onClick={() => runAI(daily)} className="text-xs text-gray-500 hover:text-gray-400 ml-auto flex items-center gap-1">
+                  <RefreshCw size={10} /> Reanalisar
+                </button>
+              )}
+            </div>
+            {aiLoad ? (
+              <div className="text-gray-500 text-sm italic">A IA está analisando a campanha...</div>
+            ) : aiText ? (
+              <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{aiText}</div>
+            ) : (
+              <div className="text-gray-600 text-sm">Aguardando dados para análise...</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AnalyticsTab() {
   const [period, setPeriod]   = useState(30);
   const [platform, setPlatform] = useState('all');
@@ -652,6 +889,7 @@ function AnalyticsTab() {
   const [meta, setMeta]       = useState(null);
   const [tiktok, setTiktok]   = useState(null);
   const [loading, setLoading] = useState(false);
+  const [selectedCampaign, setSelectedCampaign] = useState(null);
 
   useEffect(() => { loadAll(); }, [period]);
 
@@ -858,7 +1096,10 @@ function AnalyticsTab() {
       {/* TABELA DE CAMPANHAS */}
       <div className="bg-gray-900 border border-gray-800 rounded-sm p-5">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="font-black text-sm">Campanhas — {filtered.length} ativas</h4>
+          <div>
+            <h4 className="font-black text-sm">Campanhas — {filtered.length} ativas</h4>
+            <p className="text-xs text-gray-600 mt-0.5">Clique numa campanha para ver detalhes e análise IA</p>
+          </div>
           <div className="flex gap-1.5">
             {[['all','Todas'],['meta','Meta'],['tiktok','TikTok']].map(([v,l]) => (
               <button key={v} onClick={() => setPlatform(v)}
@@ -891,7 +1132,8 @@ function AnalyticsTab() {
                 filtered.sort((a, b) => b.spend - a.spend).map(c => {
                   const r = c.spend > 0 ? c.revenue / c.spend : 0;
                   return (
-                    <tr key={c.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+                    <tr key={c.id} onClick={() => setSelectedCampaign(c)}
+                      className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors cursor-pointer">
                       <td className="py-2.5 pr-4">
                         <span className={`inline-block text-xs px-1.5 py-0.5 rounded mr-2 font-bold ${c.platform === 'meta' ? 'bg-blue-900/60 text-blue-300' : 'bg-pink-900/60 text-pink-300'}`}>
                           {c.platform === 'meta' ? 'Meta' : 'TikTok'}
@@ -941,6 +1183,14 @@ function AnalyticsTab() {
           </div>
         )}
       </div>
+
+      {selectedCampaign && (
+        <CampaignDrawer
+          campaign={selectedCampaign}
+          period={period}
+          onClose={() => setSelectedCampaign(null)}
+        />
+      )}
     </div>
   );
 }

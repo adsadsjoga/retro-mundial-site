@@ -7,10 +7,11 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
   const { source, since, until } = req.query;
-  if (source === 'meta')   return handleMeta(req, res, since, until);
-  if (source === 'tiktok') return handleTikTok(req, res, since, until);
-  if (source === 'sales')  return handleSales(req, res, since, until);
-  return res.status(400).json({ error: 'source param required: meta|tiktok|sales' });
+  if (source === 'meta')        return handleMeta(req, res, since, until);
+  if (source === 'meta-daily')  return handleMetaDaily(req, res, req.query.campaign_id, since, until);
+  if (source === 'tiktok')      return handleTikTok(req, res, since, until);
+  if (source === 'sales')       return handleSales(req, res, since, until);
+  return res.status(400).json({ error: 'source param required: meta|tiktok|sales|meta-daily' });
 }
 
 // ── META ─────────────────────────────────────────────────────────────────────
@@ -51,6 +52,56 @@ async function handleMeta(req, res, since, until) {
     }));
     return res.status(200).json({ success: true, mock: false, campaigns });
   } catch { return res.status(200).json({ success: true, ...metaMock() }); }
+}
+
+// ── META DAILY (por campanha) ─────────────────────────────────────────────────
+function metaDailyMock(campaignId, since, until) {
+  const start = since ? new Date(since) : new Date(Date.now() - 30*86400000);
+  const end   = until ? new Date(until) : new Date();
+  const days  = [];
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
+    const base = 0.6 + Math.random() * 0.8;
+    days.push({
+      date:        d.toISOString().slice(0,10),
+      impressions: Math.round(3000 + Math.random()*8000),
+      clicks:      Math.round(80  + Math.random()*220),
+      spend:       +(8  + Math.random()*22).toFixed(2),
+      conversions: Math.round(base * (1 + Math.random())),
+      revenue:     +(base * 37).toFixed(2),
+    });
+  }
+  return days;
+}
+
+async function handleMetaDaily(req, res, campaignId, since, until) {
+  const token   = process.env.META_ACCESS_TOKEN;
+  const version = process.env.META_API_VERSION || 'v19.0';
+  const s = since || daysAgo(30);
+  const u = until || today();
+
+  if (!token || !campaignId) {
+    return res.status(200).json({ success: true, mock: !campaignId, daily: metaDailyMock(campaignId, s, u) });
+  }
+  try {
+    const fields = 'date_start,impressions,reach,clicks,spend,actions,action_values,ctr,cpc';
+    const url = `https://graph.facebook.com/${version}/${campaignId}/insights`
+      + `?level=campaign&fields=${fields}&time_range={"since":"${s}","until":"${u}"}`
+      + `&time_increment=1&access_token=${token}&limit=90`;
+    const r    = await fetch(url);
+    const data = await r.json();
+    if (data.error) return res.status(200).json({ success: true, mock: true, daily: metaDailyMock(campaignId, s, u) });
+    const daily = (data.data || []).map(d => ({
+      date:        d.date_start,
+      impressions: +d.impressions||0,
+      clicks:      +d.clicks||0,
+      spend:       +d.spend||0,
+      ctr:         +d.ctr||0,
+      cpc:         +d.cpc||0,
+      conversions: getAction(d.actions, 'purchase'),
+      revenue:     getActionValue(d.action_values, 'purchase'),
+    }));
+    return res.status(200).json({ success: true, mock: false, daily });
+  } catch { return res.status(200).json({ success: true, mock: true, daily: metaDailyMock(campaignId, s, u) }); }
 }
 
 // ── TIKTOK ───────────────────────────────────────────────────────────────────
