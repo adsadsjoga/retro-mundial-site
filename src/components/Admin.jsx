@@ -3,7 +3,7 @@ import {
   X, Lock, Settings, Save, Check, Package, Image, Percent,
   Zap, Globe, Plus, Trash2, ToggleLeft, ToggleRight, RefreshCw,
   Wand2, ChevronDown, ChevronUp, AlertCircle, ExternalLink, Users, Search,
-  Mail, Send, Bot, Eye,
+  Mail, Send, Bot, Eye, BarChart2, TrendingUp, TrendingDown,
 } from 'lucide-react';
 import { ImageUpload, generateCopy } from './shared';
 import { DEFAULT_CONFIG } from '../config';
@@ -53,6 +53,7 @@ export default function AdminPanel({ config, setConfig, resetConfig, onClose }) 
     { id: 'banner',       icon: Image,   label: 'Banner' },
     { id: 'discounts',    icon: Percent, label: 'Descontos' },
     { id: 'customers',    icon: Users,   label: 'Clientes' },
+    { id: 'analytics',    icon: BarChart2, label: 'Analytics' },
     { id: 'klaviyo',      icon: Mail,    label: 'Klaviyo' },
     { id: 'integrations', icon: Zap,     label: 'Integrações' },
     { id: 'general',      icon: Settings,label: 'Geral' },
@@ -121,6 +122,7 @@ export default function AdminPanel({ config, setConfig, resetConfig, onClose }) 
           {tab === 'banner'       && <BannerTab        config={config} setConfig={setConfig} />}
           {tab === 'discounts'    && <DiscountsTab     config={config} setConfig={setConfig} />}
           {tab === 'customers'    && <CustomersTab     onClose={onClose} />}
+          {tab === 'analytics'    && <AnalyticsTab />}
           {tab === 'klaviyo'      && <KlaviyoTab       config={config} />}
           {tab === 'integrations' && <IntegrationsTab  config={config} setConfig={setConfig} />}
           {tab === 'general'      && <GeneralTab       config={config} setConfig={setConfig} />}
@@ -618,6 +620,326 @@ function GeneralTab({ config, setConfig }) {
           <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
           <span>Ative apenas com dados reais. Números fabricados violam a legislação de consumidor da UE e podem reprovar anúncios no Meta.</span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ANALYTICS ────────────────────────────────────────────────────────────────
+
+function fmt(n, decimals = 0) {
+  if (n === undefined || n === null) return '—';
+  return Number(n).toLocaleString('pt-PT', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+function fmtEur(n) { return '€' + fmt(n, 2); }
+function fmtK(n) { return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : fmt(n); }
+
+const PERIODS = [
+  { label: '7 dias',  days: 7  },
+  { label: '30 dias', days: 30 },
+  { label: '90 dias', days: 90 },
+];
+
+function daysAgoStr(n) {
+  const d = new Date(); d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+function AnalyticsTab() {
+  const [period, setPeriod]   = useState(30);
+  const [platform, setPlatform] = useState('all');
+  const [sales, setSales]     = useState(null);
+  const [meta, setMeta]       = useState(null);
+  const [tiktok, setTiktok]   = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => { loadAll(); }, [period]);
+
+  async function loadAll() {
+    setLoading(true);
+    const since = daysAgoStr(period);
+    const until = new Date().toISOString().slice(0, 10);
+    const qs    = `?since=${since}&until=${until}`;
+    const [s, m, t] = await Promise.all([
+      fetch(`/api/analytics/sales${qs}`).then(r => r.json()).catch(() => null),
+      fetch(`/api/analytics/meta${qs}`).then(r => r.json()).catch(() => null),
+      fetch(`/api/analytics/tiktok${qs}`).then(r => r.json()).catch(() => null),
+    ]);
+    setSales(s);
+    setMeta(m);
+    setTiktok(t);
+    setLoading(false);
+  }
+
+  // ── cálculos agregados ─────────────────────────────────────────────────────
+  const allCampaigns = [
+    ...(meta?.campaigns   || []),
+    ...(tiktok?.campaigns || []),
+  ];
+  const filtered = platform === 'all' ? allCampaigns : allCampaigns.filter(c => c.platform === platform);
+
+  const totalSpend  = filtered.reduce((s, c) => s + c.spend, 0);
+  const totalConv   = filtered.reduce((s, c) => s + c.conversions, 0);
+  const totalImpr   = filtered.reduce((s, c) => s + c.impressions, 0);
+  const totalClicks = filtered.reduce((s, c) => s + c.clicks, 0);
+  const adRevenue   = filtered.reduce((s, c) => s + c.revenue, 0);
+  const roas        = totalSpend > 0 ? adRevenue / totalSpend : 0;
+  const cpa         = totalConv > 0  ? totalSpend / totalConv : 0;
+
+  const metaCampaigns   = allCampaigns.filter(c => c.platform === 'meta');
+  const tiktokCampaigns = allCampaigns.filter(c => c.platform === 'tiktok');
+
+  function platformFunnel(campaigns) {
+    const impr  = campaigns.reduce((s, c) => s + c.impressions, 0);
+    const clk   = campaigns.reduce((s, c) => s + c.clicks, 0);
+    const conv  = campaigns.reduce((s, c) => s + c.conversions, 0);
+    const spend = campaigns.reduce((s, c) => s + c.spend, 0);
+    const rev   = campaigns.reduce((s, c) => s + c.revenue, 0);
+    return { impr, clk, conv, spend, rev, roas: spend > 0 ? rev / spend : 0 };
+  }
+
+  const metaF   = platformFunnel(metaCampaigns);
+  const tiktokF = platformFunnel(tiktokCampaigns);
+
+  // ── gráfico SVG ────────────────────────────────────────────────────────────
+  const daily     = sales?.daily || [];
+  const maxRev    = Math.max(...daily.map(d => d.revenue), 1);
+  const chartW    = 520;
+  const chartH    = 100;
+  const barW      = daily.length > 0 ? Math.max(2, (chartW / daily.length) - 1) : 8;
+
+  const isMock = meta?.mock && tiktok?.mock && sales?.mock;
+
+  return (
+    <div>
+      {/* HEADER */}
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h3 className="text-xl font-black">Analytics Dashboard</h3>
+          <p className="text-gray-400 text-sm mt-0.5">
+            {isMock && <span className="text-amber-400 mr-2">⚠ Dados simulados — conecta as APIs para ver dados reais</span>}
+            Últimos {period} dias
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Período */}
+          <div className="flex gap-1">
+            {PERIODS.map(p => (
+              <button key={p.days} onClick={() => setPeriod(p.days)}
+                className={`text-xs px-3 py-1.5 rounded-sm font-semibold transition-colors ${period === p.days ? 'bg-amber-500 text-black' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <button onClick={loadAll} disabled={loading}
+            className="text-gray-500 hover:text-white p-1.5 transition">
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </div>
+
+      {/* KPI CARDS */}
+      <div className="grid grid-cols-5 gap-3 mb-5">
+        {[
+          { label: 'Receita', value: fmtEur(sales?.totalRevenue), sub: `${fmt(sales?.totalOrders)} pedidos`, color: 'text-amber-400' },
+          { label: 'Ticket Médio', value: fmtEur(sales?.avgOrder), sub: 'por pedido', color: 'text-white' },
+          { label: 'Ad Spend', value: fmtEur(totalSpend), sub: 'Meta + TikTok', color: 'text-white' },
+          { label: 'ROAS', value: roas > 0 ? roas.toFixed(1) + 'x' : '—', sub: `CPA ${fmtEur(cpa)}`, color: roas >= 3 ? 'text-green-400' : 'text-red-400' },
+          { label: 'Novos Clientes', value: fmt(sales?.newCustomers), sub: `${totalConv} via ads`, color: 'text-white' },
+        ].map((k, i) => (
+          <div key={i} className="bg-gray-900 border border-gray-800 rounded-sm p-4">
+            <p className="text-xs text-gray-500 mb-1">{k.label}</p>
+            <p className={`text-2xl font-black ${k.color}`}>{k.value}</p>
+            <p className="text-xs text-gray-600 mt-1">{k.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* FUNIL + GRÁFICO */}
+      <div className="grid grid-cols-2 gap-4 mb-5">
+
+        {/* FUNIL POR PLATAFORMA */}
+        <div className="bg-gray-900 border border-gray-800 rounded-sm p-5">
+          <h4 className="font-black text-sm mb-4">Funil de Vendas por Plataforma</h4>
+          {[
+            { name: 'Meta', color: '#1877f2', badge: 'bg-blue-900/50 text-blue-300', f: metaF },
+            { name: 'TikTok', color: '#ff2d55', badge: 'bg-pink-900/50 text-pink-300', f: tiktokF, mock: tiktok?.mock },
+          ].map(({ name, color, badge, f, mock }) => (
+            <div key={name} className="mb-5 last:mb-0">
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-xs font-bold px-2 py-0.5 rounded ${badge}`}>{name}</span>
+                <div className="flex items-center gap-3 text-xs text-gray-500">
+                  <span>Spend: <strong className="text-white">{fmtEur(f.spend)}</strong></span>
+                  <span>ROAS: <strong className={f.roas >= 3 ? 'text-green-400' : 'text-white'}>{f.roas > 0 ? f.roas.toFixed(1) + 'x' : '—'}</strong></span>
+                  {mock && <span className="text-amber-500/70 text-xs">simulado</span>}
+                </div>
+              </div>
+              {[
+                { label: 'Impressões', value: f.impr, pct: 100 },
+                { label: 'Cliques',    value: f.clk,  pct: f.impr > 0 ? (f.clk / f.impr) * 100 : 0, rate: f.impr > 0 ? ((f.clk / f.impr)*100).toFixed(1)+'% CTR' : '' },
+                { label: 'Conversões', value: f.conv, pct: f.clk > 0 ? (f.conv / f.clk) * 100 : 0, rate: f.clk > 0 ? ((f.conv / f.clk)*100).toFixed(2)+'% CVR' : '' },
+                { label: 'Receita',    value: '€'+fmt(f.rev, 0), pct: f.conv > 0 ? Math.min((f.conv / f.clk) * 200, 100) : 0 },
+              ].map((step, si) => (
+                <div key={si} className="flex items-center gap-2 mb-1.5">
+                  <div className="w-20 text-xs text-gray-500 text-right flex-shrink-0">{step.label}</div>
+                  <div className="flex-1 bg-gray-800 rounded-sm h-5 relative overflow-hidden">
+                    <div className="h-full rounded-sm transition-all" style={{ width: `${Math.max(step.pct, 2)}%`, background: color, opacity: 0.3 + (si * 0.2) }} />
+                  </div>
+                  <div className="w-20 text-xs text-right flex-shrink-0">
+                    <span className="text-white font-semibold">{typeof step.value === 'number' ? fmtK(step.value) : step.value}</span>
+                    {step.rate && <span className="text-gray-600 ml-1">{step.rate}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* GRÁFICO DE RECEITA */}
+        <div className="bg-gray-900 border border-gray-800 rounded-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="font-black text-sm">Receita Diária</h4>
+            <span className="text-xs text-gray-500">{daily.length} dias</span>
+          </div>
+          {daily.length > 0 ? (
+            <>
+              <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full" style={{ height: 120 }}>
+                {daily.map((d, i) => {
+                  const h = Math.max(2, (d.revenue / maxRev) * chartH);
+                  const x = i * (chartW / daily.length);
+                  return (
+                    <g key={i}>
+                      <rect x={x} y={chartH - h} width={barW} height={h} fill="#F59E0B" opacity="0.8" rx="1" />
+                    </g>
+                  );
+                })}
+              </svg>
+              <div className="flex justify-between mt-1 text-xs text-gray-600">
+                <span>{daily[0]?.date?.slice(5)}</span>
+                <span className="text-amber-400 font-bold">Total: {fmtEur(sales?.totalRevenue)}</span>
+                <span>{daily[daily.length-1]?.date?.slice(5)}</span>
+              </div>
+            </>
+          ) : (
+            <div className="h-32 flex items-center justify-center text-gray-600 text-sm">
+              {loading ? 'Carregando...' : 'Sem dados no período'}
+            </div>
+          )}
+
+          {/* PIPELINE DE CLIENTES */}
+          <div className="mt-4 pt-4 border-t border-gray-800">
+            <p className="text-xs font-bold text-gray-400 mb-3">Pipeline de Clientes</p>
+            <div className="space-y-1.5">
+              {[
+                { key: 'visitor',       label: 'Visitantes',   color: 'bg-gray-600' },
+                { key: 'cart_abandoned',label: 'Abandonaram',  color: 'bg-red-700' },
+                { key: 'purchased',     label: 'Compraram',    color: 'bg-amber-600' },
+                { key: 'completed',     label: 'Entregue',     color: 'bg-green-700' },
+                { key: 'cancelled',     label: 'Cancelado',    color: 'bg-gray-700' },
+              ].map(s => {
+                const val  = sales?.pipeline?.[s.key] || 0;
+                const total = Object.values(sales?.pipeline || {}).reduce((a, b) => a + b, 0) || 1;
+                const pct  = Math.round((val / total) * 100);
+                return (
+                  <div key={s.key} className="flex items-center gap-2">
+                    <div className="w-20 text-xs text-gray-500">{s.label}</div>
+                    <div className="flex-1 bg-gray-800 rounded-sm h-3">
+                      <div className={`h-full rounded-sm ${s.color}`} style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="w-10 text-xs text-right text-gray-400">{fmt(val)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* TABELA DE CAMPANHAS */}
+      <div className="bg-gray-900 border border-gray-800 rounded-sm p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="font-black text-sm">Campanhas — {filtered.length} ativas</h4>
+          <div className="flex gap-1.5">
+            {[['all','Todas'],['meta','Meta'],['tiktok','TikTok']].map(([v,l]) => (
+              <button key={v} onClick={() => setPlatform(v)}
+                className={`text-xs px-3 py-1 rounded-full transition-colors font-semibold ${platform === v ? 'bg-amber-500 text-black' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-gray-800 text-gray-500">
+                <th className="text-left pb-2 pr-4 font-semibold">Campanha</th>
+                <th className="text-right pb-2 px-3 font-semibold">Spend</th>
+                <th className="text-right pb-2 px-3 font-semibold">Impressões</th>
+                <th className="text-right pb-2 px-3 font-semibold">Cliques</th>
+                <th className="text-right pb-2 px-3 font-semibold">CTR</th>
+                <th className="text-right pb-2 px-3 font-semibold">CPC</th>
+                <th className="text-right pb-2 px-3 font-semibold">Conv.</th>
+                <th className="text-right pb-2 px-3 font-semibold">Receita</th>
+                <th className="text-right pb-2 pl-3 font-semibold">ROAS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={9} className="text-center py-6 text-gray-600">Sem campanhas no período</td></tr>
+              ) : (
+                filtered.sort((a, b) => b.spend - a.spend).map(c => {
+                  const r = c.spend > 0 ? c.revenue / c.spend : 0;
+                  return (
+                    <tr key={c.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+                      <td className="py-2.5 pr-4">
+                        <span className={`inline-block text-xs px-1.5 py-0.5 rounded mr-2 font-bold ${c.platform === 'meta' ? 'bg-blue-900/60 text-blue-300' : 'bg-pink-900/60 text-pink-300'}`}>
+                          {c.platform === 'meta' ? 'Meta' : 'TikTok'}
+                        </span>
+                        <span className="text-white">{c.name}</span>
+                      </td>
+                      <td className="text-right py-2.5 px-3 text-white font-semibold">{fmtEur(c.spend)}</td>
+                      <td className="text-right py-2.5 px-3 text-gray-400">{fmtK(c.impressions)}</td>
+                      <td className="text-right py-2.5 px-3 text-gray-400">{fmtK(c.clicks)}</td>
+                      <td className="text-right py-2.5 px-3 text-gray-400">{c.ctr.toFixed(1)}%</td>
+                      <td className="text-right py-2.5 px-3 text-gray-400">{fmtEur(c.cpc)}</td>
+                      <td className="text-right py-2.5 px-3 text-white">{fmt(c.conversions)}</td>
+                      <td className="text-right py-2.5 px-3 text-amber-400 font-semibold">{fmtEur(c.revenue)}</td>
+                      <td className={`text-right py-2.5 pl-3 font-black ${r >= 4 ? 'text-green-400' : r >= 2 ? 'text-amber-400' : 'text-red-400'}`}>
+                        {r > 0 ? r.toFixed(1) + 'x' : '—'}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+            {filtered.length > 0 && (
+              <tfoot>
+                <tr className="border-t border-gray-700">
+                  <td className="pt-2.5 pr-4 text-gray-400 font-semibold">Total</td>
+                  <td className="text-right pt-2.5 px-3 text-white font-black">{fmtEur(totalSpend)}</td>
+                  <td className="text-right pt-2.5 px-3 text-gray-400">{fmtK(totalImpr)}</td>
+                  <td className="text-right pt-2.5 px-3 text-gray-400">{fmtK(totalClicks)}</td>
+                  <td className="text-right pt-2.5 px-3 text-gray-400">{totalImpr > 0 ? ((totalClicks/totalImpr)*100).toFixed(1)+'%' : '—'}</td>
+                  <td className="text-right pt-2.5 px-3 text-gray-400">{totalClicks > 0 ? fmtEur(totalSpend/totalClicks) : '—'}</td>
+                  <td className="text-right pt-2.5 px-3 text-white font-black">{fmt(totalConv)}</td>
+                  <td className="text-right pt-2.5 px-3 text-amber-400 font-black">{fmtEur(adRevenue)}</td>
+                  <td className={`text-right pt-2.5 pl-3 font-black ${roas >= 4 ? 'text-green-400' : roas >= 2 ? 'text-amber-400' : 'text-red-400'}`}>
+                    {roas > 0 ? roas.toFixed(1) + 'x' : '—'}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+
+        {/* NOTA DE CONEXÃO */}
+        {(meta?.mock || tiktok?.mock) && (
+          <div className="mt-4 p-3 bg-amber-500/5 border border-amber-500/20 rounded-sm text-xs text-amber-500/70">
+            {meta?.mock && <span>Meta: adiciona META_ACCESS_TOKEN e META_AD_ACCOUNT_ID no Vercel. </span>}
+            {tiktok?.mock && <span>TikTok: adiciona TIKTOK_ACCESS_TOKEN e TIKTOK_ADVERTISER_ID quando disponível.</span>}
+          </div>
+        )}
       </div>
     </div>
   );
