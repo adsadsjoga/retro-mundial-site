@@ -3,7 +3,7 @@ import {
   X, Lock, Settings, Save, Check, Package, Image, Percent,
   Zap, Globe, Plus, Trash2, ToggleLeft, ToggleRight, RefreshCw,
   Wand2, ChevronDown, ChevronUp, AlertCircle, ExternalLink, Users, Search,
-  Mail, Send, Bot, Eye, RefreshCcw,
+  Mail, Send, Bot, Eye,
 } from 'lucide-react';
 import { ImageUpload, generateCopy } from './shared';
 import { DEFAULT_CONFIG } from '../config';
@@ -749,7 +749,7 @@ REGRAS:
             <p className="text-gray-400 text-sm mt-0.5">{templates.length} templates criados</p>
           </div>
           <button onClick={loadTemplates} className="text-gray-500 hover:text-white p-1.5 transition" title="Recarregar">
-            <RefreshCcw size={15} />
+            <RefreshCw size={15} />
           </button>
         </div>
 
