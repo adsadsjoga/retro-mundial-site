@@ -637,7 +637,12 @@ Site: retromundial.com
 `.trim();
 
 function KlaviyoTab({ config }) {
-  const [templates, setTemplates] = useState([]);
+  const STATIC_TEMPLATES = [
+    { id: 'T3AQbE', name: 'Retro Mundial - Welcome Email', updated: '' },
+    { id: 'U2Fqhu', name: 'Retro Mundial - Abandoned Cart', updated: '' },
+    { id: 'T9LACF', name: 'Retro Mundial - Post Purchase', updated: '' },
+  ];
+  const [templates, setTemplates] = useState(STATIC_TEMPLATES);
   const [loading, setLoading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
