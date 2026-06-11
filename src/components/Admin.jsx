@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   X, Lock, Settings, Save, Check, Package, Image, Percent,
   Zap, Globe, Plus, Trash2, ToggleLeft, ToggleRight, RefreshCw,
-  Wand2, ChevronDown, ChevronUp, AlertCircle, ExternalLink,
+  Wand2, ChevronDown, ChevronUp, AlertCircle, ExternalLink, Users,
 } from 'lucide-react';
 import { ImageUpload, generateCopy } from './shared';
 import { DEFAULT_CONFIG } from '../config';
@@ -51,6 +51,7 @@ export default function AdminPanel({ config, setConfig, resetConfig, onClose }) 
     { id: 'products',     icon: Package, label: 'Produtos' },
     { id: 'banner',       icon: Image,   label: 'Banner' },
     { id: 'discounts',    icon: Percent, label: 'Descontos' },
+    { id: 'customers',    icon: Users,   label: 'Clientes' },
     { id: 'integrations', icon: Zap,     label: 'Integrações' },
     { id: 'general',      icon: Settings,label: 'Geral' },
   ];
@@ -117,6 +118,7 @@ export default function AdminPanel({ config, setConfig, resetConfig, onClose }) 
           {tab === 'products'     && <ProductsTab     config={config} setConfig={setConfig} />}
           {tab === 'banner'       && <BannerTab        config={config} setConfig={setConfig} />}
           {tab === 'discounts'    && <DiscountsTab     config={config} setConfig={setConfig} />}
+          {tab === 'customers'    && <CustomersTab     onClose={onClose} />}
           {tab === 'integrations' && <IntegrationsTab  config={config} setConfig={setConfig} />}
           {tab === 'general'      && <GeneralTab       config={config} setConfig={setConfig} />}
         </div>
@@ -613,6 +615,37 @@ function GeneralTab({ config, setConfig }) {
           <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
           <span>Ative apenas com dados reais. Números fabricados violam a legislação de consumidor da UE e podem reprovar anúncios no Meta.</span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CLIENTES ─────────────────────────────────────────────────────────────────
+
+function CustomersTab({ onClose }) {
+  return (
+    <div>
+      <h3 className="text-xl font-black mb-2">Dashboard de Clientes</h3>
+      <p className="text-gray-400 text-sm mb-6">
+        Visualize todos os clientes, pedidos, eventos e rastreie o customer pipeline (visitante → comprou → entregue).
+      </p>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-sm p-8 text-center">
+        <Users size={40} className="text-amber-500 mx-auto mb-4" />
+        <h4 className="text-lg font-bold mb-2">Clientes Registrados</h4>
+        <p className="text-gray-400 text-sm mb-6">Visualize pedidos, itens comprados, eventos e RFM analysis.</p>
+
+        <button
+          onClick={() => {
+            window.open(window.location.origin + '/?page=customers', '_blank');
+          }}
+          className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold px-6 py-3 rounded-sm transition-colors"
+        >
+          <ExternalLink size={16} />
+          Abrir Dashboard
+        </button>
+
+        <p className="text-gray-600 text-xs mt-6">O dashboard abre em uma nova aba para melhor visualização.</p>
       </div>
     </div>
   );
