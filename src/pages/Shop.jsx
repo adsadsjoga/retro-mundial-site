@@ -4,9 +4,9 @@ import { ProductImage, Badge, PriceDisplay, Stars } from '../components/shared';
 
 const FILTERS = ['Todos', 'Brazil', 'Argentina', 'England', 'France', 'Spain', 'Germany'];
 
-export default function ShopPage({ config, onNavigate }) {
+export default function ShopPage({ products, config, onNavigate }) {
   const [filter, setFilter] = useState('Todos');
-  const active = config.products.filter(p => p.active);
+  const active = (products || []).filter(p => p.active);
   const filtered = filter === 'Todos' ? active : active.filter(p => p.country === filter);
 
   // Scroll reveal

@@ -154,25 +154,36 @@ export async function checkoutWithVariant(domain, token, variantId, quantity = 1
   return cart.checkoutUrl;
 }
 
-// Merge: dados do Shopify + copy/config local
+// Merge: Shopify como primária + copy/styling local
+// Filtra só os 6 produtos locais (pelo shopifyHandle) e enriquece com dados locais
 export function mergeWithLocalConfig(shopifyProducts, localProducts) {
-  return localProducts.map(local => {
-    const shopify = shopifyProducts.find(s => s.handle === (local.shopifyHandle || local.handle));
-    if (!shopify) return local;
+  const localByHandle = {};
+  localProducts.forEach(p => {
+    const key = p.shopifyHandle || p.handle;
+    localByHandle[key] = p;
+  });
+
+  // Mapeia por Shopify, busca local para copy + styling
+  return shopifyProducts.filter(s => localByHandle[s.handle]).map(shopify => {
+    const local = localByHandle[shopify.handle];
     return {
-      ...local,
-      shopifyProductId: shopify.shopifyProductId,
-      price: shopify.price,
-      compareAtPrice: shopify.compareAtPrice ?? local.compareAtPrice,
-      stock: shopify.stock ?? local.stock,
-      images: shopify.images.length ? shopify.images : local.images,
-      // Variantes do Shopify substituem as locais (mas mantém hex/nome editados localmente)
+      ...shopify,
+      // dados de apresentação locais (copy, badges, etc)
+      name: local.name || shopify.title,
+      country: local.country || '',
+      badge: local.badge || '',
+      badgeColor: local.badgeColor || '',
+      copy: local.copy || {},
+      sizes: local.sizes || ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+      // cores/hex do config local (permite edição via admin)
       variants: shopify.variants.map(sv => {
-        const localVariant = local.variants.find(lv => lv.name.toLowerCase() === sv.name.toLowerCase());
+        const localVariant = local.variants?.find(lv => lv.name.toLowerCase() === sv.name.toLowerCase());
         return {
           ...sv,
-          hex: localVariant?.hex || sv.hex,
-          imageUrl: localVariant?.imageUrl || sv.imageUrl,
+          name: localVariant?.name || sv.name,
+          hex: localVariant?.hex || '#888888',
+          imageUrl: localVariant?.imageUrl || sv.imageUrl || '',
+          inStock: sv.inStock ?? localVariant?.inStock ?? true,
         };
       }),
     };

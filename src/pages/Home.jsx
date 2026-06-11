@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { Check, ExternalLink } from 'lucide-react';
 import { ProductImage, Badge, PriceDisplay, Stars } from '../components/shared';
 
-export default function HomePage({ config, onNavigate, onAddToCart }) {
+export default function HomePage({ products, config, onNavigate, onAddToCart }) {
   const [email, setEmail] = useState('');
   const [emailDone, setEmailDone] = useState(false);
-  const { hero, trustBadges, products } = config;
-  const activeProducts = products.filter(p => p.active);
+  const { hero, trustBadges } = config;
+  const activeProducts = (products || []).filter(p => p.active);
   const activeCoupon = config.discounts?.find(d => d.active);
 
   // Scroll reveal

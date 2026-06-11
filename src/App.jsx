@@ -39,22 +39,25 @@ export default function App() {
   // Meta Pixel
   useMetaPixel(config.integrations?.pixelId);
 
-  // Sincroniza produtos locais quando config muda
-  useEffect(() => {
-    setProducts(config.products);
-  }, [config.products]);
-
-  // Carrega produtos do Shopify se token configurado
+  // Carrega produtos: Shopify se disponível, senão locais
   useEffect(() => {
     const { shopifyDomain, shopifyToken } = config.integrations || {};
-    if (!shopifyDomain || !shopifyToken) return;
 
-    fetchShopifyProducts(shopifyDomain, shopifyToken)
-      .then(shopifyProducts => {
-        setProducts(mergeWithLocalConfig(shopifyProducts, config.products));
-      })
-      .catch(err => console.warn('Shopify fetch skipped:', err.message));
-  }, [config.integrations?.shopifyToken, config.integrations?.shopifyDomain]);
+    if (shopifyDomain && shopifyToken) {
+      // Shopify disponível — busca e merge com config local
+      fetchShopifyProducts(shopifyDomain, shopifyToken)
+        .then(shopifyProducts => {
+          setProducts(mergeWithLocalConfig(shopifyProducts, config.products));
+        })
+        .catch(err => {
+          console.warn('Shopify fetch failed:', err.message);
+          setProducts(config.products); // fallback para local
+        });
+    } else {
+      // Sem token — usa apenas produtos locais
+      setProducts(config.products);
+    }
+  }, [config.products, config.integrations?.shopifyToken, config.integrations?.shopifyDomain]);
 
   // Popup com delay configurável — 1× por sessão
   useEffect(() => {
@@ -154,10 +157,10 @@ export default function App() {
 
       <main>
         {page === 'home' && (
-          <HomePage config={activeConfig} onNavigate={navigate} onAddToCart={addToCart} />
+          <HomePage products={products} config={activeConfig} onNavigate={navigate} onAddToCart={addToCart} />
         )}
         {page === 'shop' && (
-          <ShopPage config={activeConfig} onNavigate={navigate} />
+          <ShopPage products={products} config={activeConfig} onNavigate={navigate} />
         )}
         {page === 'product' && currentProduct && (
           <ProductPage
