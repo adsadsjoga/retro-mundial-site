@@ -156,7 +156,7 @@ export async function checkoutWithVariant(domain, token, variantId, quantity = 1
 // Merge: dados do Shopify + copy/config local
 export function mergeWithLocalConfig(shopifyProducts, localProducts) {
   return localProducts.map(local => {
-    const shopify = shopifyProducts.find(s => s.handle === local.handle);
+    const shopify = shopifyProducts.find(s => s.handle === (local.shopifyHandle || local.handle));
     if (!shopify) return local;
     return {
       ...local,

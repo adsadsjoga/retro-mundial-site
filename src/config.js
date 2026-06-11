@@ -48,6 +48,7 @@ export const DEFAULT_CONFIG = {
     {
       id: 1,
       handle: 'brazil-world-cup-2026',
+      shopifyHandle: 'unisex-organic-oversized-high-neck-t-shirt',
       name: 'Brazil World Cup 2026',
       country: 'Brazil',
       badge: 'Best Seller',
@@ -80,6 +81,7 @@ export const DEFAULT_CONFIG = {
     {
       id: 2,
       handle: 'argentina-legacy',
+      shopifyHandle: 'argentina-unisex-organic-oversized-high-neck-t-shirt',
       name: 'Argentina Legacy',
       country: 'Argentina',
       badge: 'Collector Edition',
@@ -110,6 +112,7 @@ export const DEFAULT_CONFIG = {
     {
       id: 3,
       handle: 'germany-precision',
+      shopifyHandle: 'germany-unisex-organic-oversized-high-neck-t-shirt',
       name: 'Germany Precision',
       country: 'Germany',
       badge: 'Trending Now',
@@ -141,6 +144,7 @@ export const DEFAULT_CONFIG = {
     {
       id: 4,
       handle: 'england-tradition',
+      shopifyHandle: 'england-unisex-organic-oversized-high-neck-t-shirt',
       name: 'England Tradition',
       country: 'England',
       badge: 'Best Seller',
@@ -172,6 +176,7 @@ export const DEFAULT_CONFIG = {
     {
       id: 5,
       handle: 'france-elegance',
+      shopifyHandle: 'france-unisex-organic-oversized-high-neck-t-shirt',
       name: 'France Elegance',
       country: 'France',
       badge: 'Fan Favorite',
@@ -202,6 +207,7 @@ export const DEFAULT_CONFIG = {
     {
       id: 6,
       handle: 'spain-passion',
+      shopifyHandle: 'espanha-unisex-organic-oversized-high-neck-t-shirt',
       name: 'Spain Passion',
       country: 'Spain',
       badge: 'New Drop',
@@ -253,7 +259,16 @@ export function useConfig() {
   const [config, setConfigState] = useState(() => {
     try {
       const saved = localStorage.getItem('rm_config_v2');
-      if (saved) return deepMerge(DEFAULT_CONFIG, JSON.parse(saved));
+      if (saved) {
+        const merged = deepMerge(DEFAULT_CONFIG, JSON.parse(saved));
+        // config antigo no localStorage tem token/domínio vazios — não deixar
+        // valores vazios sobrepor as credenciais novas do DEFAULT_CONFIG
+        if (!merged.integrations.shopifyToken)  merged.integrations.shopifyToken  = DEFAULT_CONFIG.integrations.shopifyToken;
+        if (!merged.integrations.shopifyDomain || merged.integrations.shopifyDomain === 'shop.retromundial.com') {
+          merged.integrations.shopifyDomain = DEFAULT_CONFIG.integrations.shopifyDomain;
+        }
+        return merged;
+      }
     } catch {}
     return DEFAULT_CONFIG;
   });
