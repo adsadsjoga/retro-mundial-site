@@ -642,11 +642,50 @@ const STATIC_TEMPLATES = [
   { id: 'T9LACF', name: 'Retro Mundial - Post Purchase' },
 ];
 
+const BLANK_HTML = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr><td align="center" style="padding:40px 20px;">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+      <tr><td style="background:#000;padding:32px 40px;text-align:center;border-bottom:3px solid #F59E0B;">
+        <div style="font-size:22px;font-weight:900;color:#fff;">RETRO MUNDIAL</div>
+        <div style="font-size:11px;color:#F59E0B;letter-spacing:4px;margin-top:4px;">MOMENTS THAT MATTER</div>
+      </td></tr>
+      <tr><td style="background:#111;padding:48px 40px;text-align:center;">
+        <h1 style="font-size:32px;font-weight:900;color:#fff;margin:0 0 16px;">Título do Email</h1>
+        <p style="font-size:16px;color:#9ca3af;line-height:1.6;margin:0 0 32px;">Escreva o conteúdo aqui.</p>
+        <a href="https://retromundial.com/shop" style="display:inline-block;background:#F59E0B;color:#000;font-weight:900;font-size:14px;padding:16px 40px;text-decoration:none;letter-spacing:2px;text-transform:uppercase;">VER COLEÇÃO →</a>
+      </td></tr>
+      <tr><td style="background:#000;padding:24px 40px;text-align:center;border-top:1px solid #1f2937;">
+        <div style="font-size:11px;color:#6b7280;">© 2026 Retro Mundial · {% unsubscribe 'Cancelar subscrição' %}</div>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+
+function getTemplateIcon(name) {
+  if (name.includes('Welcome')) return '👋';
+  if (name.includes('Abandoned') || name.includes('Cart')) return '🛒';
+  if (name.includes('Post') || name.includes('Purchase')) return '🏆';
+  if (name.includes('Re-engagement') || name.includes('Winback')) return '🔁';
+  return '📧';
+}
+
 function KlaviyoTab({ config }) {
   const [templates, setTemplates] = useState(STATIC_TEMPLATES);
   const [loading, setLoading] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [chatOpen, setChatOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [apiError, setApiError] = useState('');
+
+  // modal de criar/editar
+  const [modal, setModal] = useState(null); // null | { mode: 'create'|'edit', id?, name, html }
+
+  // painel de revisão IA
+  const [chatTemplate, setChatTemplate] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
@@ -654,25 +693,82 @@ function KlaviyoTab({ config }) {
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  async function loadTemplates() {
+  // ── sync com Klaviyo ───────────────────────────────────────────────────────
+  async function syncTemplates() {
     setLoading(true);
+    setApiError('');
     try {
       const res = await fetch('/api/klaviyo/templates');
       const json = await res.json();
       if (json.success && json.templates?.length > 0) setTemplates(json.templates);
-    } catch {}
+      else if (!json.success) setApiError(json.error || 'Erro ao buscar templates.');
+    } catch {
+      setApiError('Sem conexão com a API. Mostrando templates locais.');
+    }
     setLoading(false);
   }
 
-  function openReview(template) {
-    setSelectedTemplate(template);
-    setMessages([
-      {
-        role: 'assistant',
-        content: `Olá! Vou revisar o template **"${template.name}"** com base no contexto da Retro Mundial.\n\nDigite **/revisar** para eu analisar o template e dar sugestões detalhadas, ou me faça uma pergunta específica sobre copywriting, assunto, CTA ou estrutura.`,
-      },
-    ]);
-    setChatOpen(true);
+  // ── abrir modal de edição (busca HTML do Klaviyo) ──────────────────────────
+  async function openEdit(t) {
+    setModal({ mode: 'edit', id: t.id, name: t.name, html: '<!-- carregando... -->' });
+    try {
+      const res = await fetch(`/api/klaviyo/template?id=${t.id}`);
+      const json = await res.json();
+      if (json.success) setModal({ mode: 'edit', id: t.id, name: t.name, html: json.html });
+      else setModal(m => ({ ...m, html: BLANK_HTML }));
+    } catch {
+      setModal(m => ({ ...m, html: BLANK_HTML }));
+    }
+  }
+
+  // ── salvar (criar ou editar) ───────────────────────────────────────────────
+  async function saveTemplate() {
+    if (!modal?.name.trim() || !modal?.html.trim()) return;
+    setSaving(true);
+    try {
+      const isEdit = modal.mode === 'edit';
+      const res = await fetch('/api/klaviyo/template', {
+        method: isEdit ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: modal.id, name: modal.name, html: modal.html }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        if (isEdit) {
+          setTemplates(prev => prev.map(t => t.id === modal.id ? { ...t, name: modal.name } : t));
+        } else {
+          setTemplates(prev => [...prev, { id: json.id, name: modal.name }]);
+        }
+        setModal(null);
+      } else {
+        alert('Erro: ' + (json.error || 'Falha ao salvar.'));
+      }
+    } catch {
+      alert('Erro de rede.');
+    }
+    setSaving(false);
+  }
+
+  // ── excluir ────────────────────────────────────────────────────────────────
+  async function deleteTemplate(t) {
+    if (!window.confirm(`Excluir "${t.name}"? Esta ação não pode ser desfeita.`)) return;
+    try {
+      const res = await fetch(`/api/klaviyo/template?id=${t.id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) setTemplates(prev => prev.filter(x => x.id !== t.id));
+      else alert('Erro ao excluir: ' + json.error);
+    } catch {
+      alert('Erro de rede.');
+    }
+  }
+
+  // ── chat IA ────────────────────────────────────────────────────────────────
+  function openReview(t) {
+    setChatTemplate(t);
+    setMessages([{
+      role: 'assistant',
+      content: `Olá! Vou revisar **"${t.name}"** com base no contexto da Retro Mundial.\n\nDigite **/revisar** para análise completa, ou faça uma pergunta específica sobre assunto, CTA, urgência ou copywriting.`,
+    }]);
   }
 
   async function sendMessage() {
@@ -682,182 +778,207 @@ function KlaviyoTab({ config }) {
     const newMessages = [...messages, { role: 'user', content: userMsg }];
     setMessages(newMessages);
     setThinking(true);
-
     try {
-      const isReview = userMsg.toLowerCase().includes('/revisar') || userMsg.toLowerCase().includes('revisar') || userMsg.toLowerCase().includes('analis');
-      const systemPrompt = `Você é um especialista em email marketing e copywriting para e-commerce de moda/esporte premium.
-Você está ajudando a equipe da Retro Mundial a melhorar seus templates de email no Klaviyo.
-
-CONTEXTO DA EMPRESA:
-${COMPANY_CONTEXT}
-
-TEMPLATE EM ANÁLISE: ${selectedTemplate?.name}
-
-REGRAS:
-- Responda sempre em português do Brasil.
-- Seja específico e prático — dê exemplos concretos de copy.
-- Foque em: linha de assunto (subject line), pré-header, CTA, urgência, personalização.
-- Quando sugerir melhorias, mostre a versão original E a versão melhorada.
-- Use o tom de voz da marca: premium, apaixonado, com narrativa de futebol/história.
-- Máximo 3-4 sugestões por vez para não sobrecarregar.`;
-
       const res = await fetch('/api/ai-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-          system: systemPrompt,
+          system: `Você é especialista em email marketing premium para e-commerce de moda/esporte.
+Ajude a equipe da Retro Mundial a melhorar templates de email no Klaviyo.
+
+${COMPANY_CONTEXT}
+
+TEMPLATE: ${chatTemplate?.name}
+
+Responda sempre em português. Seja específico — mostre versão original e melhorada. Foque em: assunto, pré-header, CTA, urgência, personalização. Máximo 3-4 sugestões por vez.`,
           anthropicKey: config.integrations?.anthropicKey,
         }),
       });
-
       const json = await res.json();
-      if (json.content) {
-        setMessages(prev => [...prev, { role: 'assistant', content: json.content }]);
-      } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: '❌ Erro ao conectar à IA. Verifique se a Claude API Key está configurada em Integrações.' }]);
-      }
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: json.content || '❌ Erro: verifique a Claude API Key em Integrações.',
+      }]);
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: '❌ Erro de rede. Tente novamente.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: '❌ Erro de rede.' }]);
     }
     setThinking(false);
   }
 
-  const templateIcons = {
-    'Welcome': '👋',
-    'Abandoned': '🛒',
-    'Post Purchase': '🏆',
-    'Re-engagement': '🔁',
-  };
-
-  function getIcon(name) {
-    for (const [k, v] of Object.entries(templateIcons)) {
-      if (name.includes(k)) return v;
-    }
-    return '📧';
-  }
+  const hasKlaviyo = !!process.env.KLAVIYO_API_KEY; // sempre false no browser — só indicativo
 
   return (
-    <div className="flex gap-6 h-full">
-      {/* LISTA DE TEMPLATES */}
-      <div className={chatOpen ? 'w-72 flex-shrink-0' : 'flex-1 max-w-2xl'}>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-xl font-black">Klaviyo — Email Templates</h3>
-            <p className="text-gray-400 text-sm mt-0.5">{templates.length} templates criados</p>
-          </div>
-          <button onClick={loadTemplates} className="text-gray-500 hover:text-white p-1.5 transition" title="Recarregar">
-            <RefreshCw size={15} />
+    <div>
+      {/* ── HEADER ── */}
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h3 className="text-xl font-black">Klaviyo — Email Templates</h3>
+          <p className="text-gray-400 text-sm mt-0.5">{templates.length} template{templates.length !== 1 ? 's' : ''}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={syncTemplates} disabled={loading}
+            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-sm transition-colors disabled:opacity-40">
+            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Sincronizar
+          </button>
+          <button onClick={() => setModal({ mode: 'create', name: '', html: BLANK_HTML })}
+            className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black text-xs font-black px-3 py-1.5 rounded-sm transition-colors">
+            <Plus size={13} /> Novo Template
           </button>
         </div>
+      </div>
 
-        {/* CONFIG HINT */}
-        {!config.integrations?.anthropicKey && (
-          <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-sm text-xs text-amber-400 flex gap-2">
-            <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
-            <span>Adicione a <strong>Claude API Key</strong> em Integrações para usar a revisão com IA.</span>
-          </div>
-        )}
+      {apiError && (
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-sm text-xs text-red-400">{apiError}</div>
+      )}
+      {!config.integrations?.anthropicKey && (
+        <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-sm text-xs text-amber-400 flex gap-2">
+          <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+          <span>Adicione a <strong>Claude API Key</strong> em Integrações para usar a revisão com IA.</span>
+        </div>
+      )}
 
-        <div className="space-y-3">
-          {loading ? (
-            <div className="text-gray-500 text-sm text-center py-8">Carregando templates...</div>
-          ) : (
-            templates.map(t => (
+      {/* ── LAYOUT SPLIT: lista + chat ── */}
+      <div className="flex gap-5">
+        {/* LISTA */}
+        <div className={chatTemplate ? 'w-80 flex-shrink-0' : 'flex-1 max-w-2xl'}>
+          <div className="space-y-2">
+            {templates.map(t => (
               <div key={t.id}
-                className={`bg-gray-900 border rounded-sm p-4 transition-colors ${selectedTemplate?.id === t.id && chatOpen ? 'border-amber-500' : 'border-gray-800'}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <span className="text-2xl flex-shrink-0">{getIcon(t.name)}</span>
-                    <div className="min-w-0">
-                      <div className="font-bold text-sm text-white truncate">{t.name}</div>
-                      <div className="text-gray-500 text-xs mt-0.5">ID: {t.id}</div>
-                    </div>
+                className={`bg-gray-900 border rounded-sm p-4 transition-colors ${chatTemplate?.id === t.id ? 'border-purple-600' : 'border-gray-800'}`}>
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl flex-shrink-0">{getTemplateIcon(t.name)}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-sm text-white truncate">{t.name}</div>
+                    <div className="text-gray-600 text-xs mt-0.5">ID: {t.id}</div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                    <a href="https://www.klaviyo.com/email-templates" target="_blank" rel="noreferrer"
-                      className="text-gray-600 hover:text-white p-1 transition" title="Abrir no Klaviyo">
-                      <Eye size={14} />
-                    </a>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => openEdit(t)}
+                      title="Editar HTML"
+                      className="text-gray-500 hover:text-amber-400 p-1.5 transition rounded-sm hover:bg-gray-800">
+                      <Wand2 size={14} />
+                    </button>
                     <button onClick={() => openReview(t)}
-                      className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-3 py-1.5 rounded-sm transition-colors">
-                      <Bot size={12} /> Revisar com IA
+                      title="Revisar com IA"
+                      className="text-gray-500 hover:text-purple-400 p-1.5 transition rounded-sm hover:bg-gray-800">
+                      <Bot size={14} />
+                    </button>
+                    <button onClick={() => deleteTemplate(t)}
+                      title="Excluir"
+                      className="text-gray-500 hover:text-red-400 p-1.5 transition rounded-sm hover:bg-gray-800">
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
               </div>
-            ))
-          )}
+            ))}
+          </div>
+
+          <div className="mt-4 p-3 bg-gray-900 border border-gray-800 rounded-sm text-xs text-gray-500">
+            <p className="font-bold text-gray-400 mb-1.5">Flows recomendados no Klaviyo:</p>
+            <ul className="space-y-1">
+              <li>• <strong className="text-gray-300">Welcome Series</strong> → trigger: List joined</li>
+              <li>• <strong className="text-gray-300">Abandoned Cart</strong> → trigger: Started Checkout</li>
+              <li>• <strong className="text-gray-300">Post Purchase</strong> → trigger: Placed Order</li>
+            </ul>
+          </div>
         </div>
 
-        <div className="mt-4 p-3 bg-gray-900 border border-gray-800 rounded-sm text-xs text-gray-500">
-          <p className="font-bold text-gray-400 mb-1">Flows recomendados no Klaviyo:</p>
-          <ul className="space-y-1">
-            <li>• Welcome Series → trigger: List joined</li>
-            <li>• Abandoned Cart → trigger: Started Checkout</li>
-            <li>• Post Purchase → trigger: Placed Order</li>
-          </ul>
-        </div>
+        {/* CHAT IA */}
+        {chatTemplate && (
+          <div className="flex-1 flex flex-col bg-gray-900 border border-gray-800 rounded-sm overflow-hidden" style={{ height: 520 }}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-950 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Bot size={15} className="text-purple-400" />
+                <span className="font-bold text-sm truncate">Revisão IA — {chatTemplate.name}</span>
+              </div>
+              <button onClick={() => { setChatTemplate(null); setMessages([]); }} className="text-gray-500 hover:text-white">
+                <X size={15} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {messages.map((msg, i) => (
+                <div key={i} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${msg.role === 'user' ? 'bg-amber-500 text-black' : 'bg-purple-600 text-white'}`}>
+                    {msg.role === 'user' ? 'A' : <Bot size={12} />}
+                  </div>
+                  <div className={`max-w-[85%] text-xs rounded-sm px-3 py-2 leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'bg-amber-500/20 text-white' : 'bg-gray-800 text-gray-200'}`}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {thinking && (
+                <div className="flex gap-2">
+                  <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center"><Bot size={12} className="text-white" /></div>
+                  <div className="bg-gray-800 text-gray-400 text-xs px-3 py-2 rounded-sm">Analisando...</div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+            <div className="px-3 pt-2 flex gap-1.5 flex-wrap border-t border-gray-800 flex-shrink-0">
+              {['/revisar', 'Melhore o assunto', 'Melhore o CTA', 'Adicione urgência'].map(p => (
+                <button key={p} onClick={() => setInput(p)}
+                  className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2 py-1 rounded-sm transition-colors">
+                  {p}
+                </button>
+              ))}
+            </div>
+            <div className="p-3 pt-2 flex gap-2 flex-shrink-0">
+              <input value={input} onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                placeholder="Pergunte sobre o template... (Enter)" className={iCls + ' flex-1 text-xs'} disabled={thinking} />
+              <button onClick={sendMessage} disabled={thinking || !input.trim()}
+                className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white p-2 rounded-sm transition-colors">
+                <Send size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* CHAT DE REVISÃO COM IA */}
-      {chatOpen && (
-        <div className="flex-1 flex flex-col bg-gray-900 border border-gray-800 rounded-sm overflow-hidden">
-          {/* Chat Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-950">
-            <div className="flex items-center gap-2">
-              <Bot size={16} className="text-purple-400" />
-              <span className="font-bold text-sm">Revisão IA — {selectedTemplate?.name}</span>
+      {/* ── MODAL CRIAR / EDITAR ── */}
+      {modal && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-sm w-full max-w-4xl flex flex-col" style={{ maxHeight: '90vh' }}>
+            {/* modal header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 flex-shrink-0">
+              <h3 className="font-black text-lg">{modal.mode === 'create' ? 'Novo Template' : 'Editar Template'}</h3>
+              <button onClick={() => setModal(null)} className="text-gray-500 hover:text-white"><X size={18} /></button>
             </div>
-            <button onClick={() => { setChatOpen(false); setSelectedTemplate(null); setMessages([]); }}
-              className="text-gray-500 hover:text-white transition"><X size={16} /></button>
-          </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map((msg, i) => (
-              <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${msg.role === 'user' ? 'bg-amber-500 text-black' : 'bg-purple-600 text-white'}`}>
-                  {msg.role === 'user' ? 'A' : <Bot size={14} />}
-                </div>
-                <div className={`max-w-[80%] text-sm rounded-sm px-3 py-2 leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'bg-amber-500/20 text-white' : 'bg-gray-800 text-gray-200'}`}>
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-            {thinking && (
-              <div className="flex gap-3">
-                <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center"><Bot size={14} className="text-white" /></div>
-                <div className="bg-gray-800 text-gray-400 text-sm px-3 py-2 rounded-sm">Analisando...</div>
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
+            <div className="flex-1 overflow-auto p-5 space-y-4">
+              <Field label="Nome do Template">
+                <input value={modal.name} onChange={e => setModal(m => ({ ...m, name: e.target.value }))}
+                  className={iCls} placeholder="Ex: Retro Mundial - Newsletter Junho" />
+              </Field>
 
-          {/* Quick Prompts */}
-          <div className="px-4 pt-3 flex gap-2 flex-wrap border-t border-gray-800">
-            {['/revisar', 'Melhore o assunto', 'Melhore o CTA', 'Adicione urgência'].map(p => (
-              <button key={p} onClick={() => { setInput(p); }}
-                className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2.5 py-1 rounded-sm transition-colors">
-                {p}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className={lCls}>HTML do Email</label>
+                  <span className="text-xs text-gray-600">{modal.html.length} chars</span>
+                </div>
+                <textarea
+                  value={modal.html}
+                  onChange={e => setModal(m => ({ ...m, html: e.target.value }))}
+                  className={iCls + ' font-mono text-xs leading-relaxed resize-none'}
+                  style={{ height: 380 }}
+                  spellCheck={false}
+                />
+                <p className="text-gray-600 text-xs mt-1">
+                  Use variáveis Klaviyo: <code className="text-amber-400">{'{{ first_name }}'}</code>, <code className="text-amber-400">{'{% unsubscribe %}'}</code>
+                </p>
+              </div>
+            </div>
+
+            {/* modal footer */}
+            <div className="flex items-center justify-between px-5 py-4 border-t border-gray-800 flex-shrink-0">
+              <button onClick={() => setModal(null)} className="text-gray-400 hover:text-white text-sm font-semibold">Cancelar</button>
+              <button onClick={saveTemplate} disabled={saving || !modal.name.trim()}
+                className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black font-black text-sm px-5 py-2 rounded-sm transition-colors">
+                {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+                {saving ? 'Salvando...' : modal.mode === 'create' ? 'Criar Template' : 'Salvar Alterações'}
               </button>
-            ))}
-          </div>
-
-          {/* Input */}
-          <div className="p-4 pt-2 flex gap-2">
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-              placeholder="Pergunte sobre o template... (Enter para enviar)"
-              className={iCls + ' flex-1'}
-              disabled={thinking}
-            />
-            <button onClick={sendMessage} disabled={thinking || !input.trim()}
-              className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white p-2 rounded-sm transition-colors">
-              <Send size={16} />
-            </button>
+            </div>
           </div>
         </div>
       )}
