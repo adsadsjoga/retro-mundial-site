@@ -3,7 +3,8 @@
 // GET /api/shopify/sync?action=test
 // GET /api/shopify/sync?action=products
 
-const SHOPIFY_DOMAIN = 'shop.retromundial.com';
+// Admin API exige o domínio .myshopify.com — o domínio custom devolve 301 e quebra o POST
+const SHOPIFY_DOMAIN = 'w3vhuq-dy.myshopify.com';
 const ADMIN_TOKEN = process.env.SHOPIFY_ADMIN_TOKEN;
 
 async function adminApiFetch(token, query, variables = {}) {

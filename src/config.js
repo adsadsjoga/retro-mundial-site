@@ -15,8 +15,8 @@ export const DEFAULT_CONFIG = {
     pixelId: '2187595858447389',
     klaviyoFormId: '',
     // Shopify Storefront API — gere em: Shopify Admin → Settings → Apps → Develop apps
-    shopifyDomain: 'shop.retromundial.com',  // seu domínio customizado
-    shopifyToken: '',                        // Storefront API access token (quando pegar)
+    shopifyDomain: 'w3vhuq-dy.myshopify.com', // domínio canónico — o custom dá 301 na API
+    shopifyToken: '',                         // Storefront API access token (quando pegar)
     // Cloudinary — cloudinary.com (grátis)
     cloudinaryCloud: 'dsyupplhx',
     cloudinaryPreset: 'retromundial_uploads',
