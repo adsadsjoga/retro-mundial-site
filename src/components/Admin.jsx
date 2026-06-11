@@ -775,7 +775,7 @@ REGRAS:
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                    <a href={`https://www.klaviyo.com/email-editor/template/${t.id}`} target="_blank" rel="noreferrer"
+                    <a href="https://www.klaviyo.com/email-templates" target="_blank" rel="noreferrer"
                       className="text-gray-600 hover:text-white p-1 transition" title="Abrir no Klaviyo">
                       <Eye size={14} />
                     </a>
