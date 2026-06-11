@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   X, Lock, Settings, Save, Check, Package, Image, Percent,
   Zap, Globe, Plus, Trash2, ToggleLeft, ToggleRight, RefreshCw,
-  Wand2, ChevronDown, ChevronUp, AlertCircle, ExternalLink, Users,
+  Wand2, ChevronDown, ChevronUp, AlertCircle, ExternalLink, Users, Search,
 } from 'lucide-react';
 import { ImageUpload, generateCopy } from './shared';
 import { DEFAULT_CONFIG } from '../config';
@@ -622,30 +622,169 @@ function GeneralTab({ config, setConfig }) {
 
 // ─── CLIENTES ─────────────────────────────────────────────────────────────────
 
-function CustomersTab({ onClose }) {
+function CustomersTab() {
+  const [customers, setCustomers] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [stage, setStage] = useState('all');
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
+  const limit = 20;
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({ limit, offset: page * limit, ...(search && { search }), ...(stage !== 'all' && { stage }) });
+        const res = await fetch(`/api/customers?${params}`);
+        const json = await res.json();
+        if (json.success) { setCustomers(json.data); setTotal(json.pagination.total); }
+      } catch (e) { console.error(e); }
+      setLoading(false);
+    };
+    load();
+  }, [page, search, stage]);
+
+  const loadDetail = async (email) => {
+    try {
+      const res = await fetch(`/api/customers?email=${encodeURIComponent(email)}`);
+      const json = await res.json();
+      if (json.success) setSelected(json);
+    } catch (e) { console.error(e); }
+  };
+
+  const stageColors = { visitor: 'bg-gray-700 text-gray-300', cart_abandoned: 'bg-red-900/60 text-red-300', purchased: 'bg-green-900/60 text-green-300', completed: 'bg-blue-900/60 text-blue-300', cancelled: 'bg-gray-700 text-gray-400' };
+  const stageLabels = { visitor: 'Visitante', cart_abandoned: '🛒 Abandonou', purchased: '💳 Comprou', completed: '📦 Entregue', cancelled: '❌ Cancelado' };
+
   return (
     <div>
-      <h3 className="text-xl font-black mb-2">Dashboard de Clientes</h3>
-      <p className="text-gray-400 text-sm mb-6">
-        Visualize todos os clientes, pedidos, eventos e rastreie o customer pipeline (visitante → comprou → entregue).
-      </p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-xl font-black">Clientes</h3>
+          <p className="text-gray-400 text-sm">{total} registados</p>
+        </div>
+      </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-sm p-8 text-center">
-        <Users size={40} className="text-amber-500 mx-auto mb-4" />
-        <h4 className="text-lg font-bold mb-2">Clientes Registrados</h4>
-        <p className="text-gray-400 text-sm mb-6">Visualize pedidos, itens comprados, eventos e RFM analysis.</p>
+      {/* FILTROS */}
+      <div className="flex gap-3 mb-6">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-3 top-2.5 text-gray-500" />
+          <input value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} placeholder="Buscar email ou nome..." className={iCls + ' pl-8'} />
+        </div>
+        <select value={stage} onChange={e => { setStage(e.target.value); setPage(0); }} className={iCls + ' w-44'}>
+          <option value="all">Todos</option>
+          <option value="visitor">Visitante</option>
+          <option value="cart_abandoned">Abandonou Carrinho</option>
+          <option value="purchased">Comprou</option>
+          <option value="completed">Entregue</option>
+          <option value="cancelled">Cancelado</option>
+        </select>
+      </div>
 
-        <button
-          onClick={() => {
-            window.open(window.location.origin + '/?page=customers', '_blank');
-          }}
-          className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold px-6 py-3 rounded-sm transition-colors"
-        >
-          <ExternalLink size={16} />
-          Abrir Dashboard
-        </button>
+      <div className="flex gap-4 h-[500px]">
+        {/* LISTA */}
+        <div className="w-64 flex-shrink-0 bg-gray-900 border border-gray-800 rounded-sm overflow-y-auto">
+          {loading ? (
+            <div className="p-6 text-center text-gray-500 text-sm">Carregando...</div>
+          ) : customers.length === 0 ? (
+            <div className="p-6 text-center text-gray-500 text-sm">Nenhum cliente encontrado</div>
+          ) : (
+            customers.map(c => (
+              <button key={c.email} onClick={() => loadDetail(c.email)}
+                className={`w-full text-left p-3 border-b border-gray-800 hover:bg-gray-800 transition text-sm ${selected?.customer?.email === c.email ? 'bg-amber-500/10 border-l-2 border-l-amber-500' : ''}`}>
+                <div className="font-semibold text-white truncate">{c.name || c.email}</div>
+                <div className="text-gray-500 text-xs truncate">{c.email}</div>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${stageColors[c.stage] || 'bg-gray-700 text-gray-300'}`}>{stageLabels[c.stage] || c.stage}</span>
+                  <span className="text-amber-500 text-xs font-bold">€{parseFloat(c.total_spent || 0).toFixed(2)}</span>
+                </div>
+              </button>
+            ))
+          )}
+          <div className="p-2 flex gap-2 border-t border-gray-800">
+            <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} className="flex-1 py-1.5 bg-gray-800 rounded text-xs disabled:opacity-40">← Ant.</button>
+            <button onClick={() => setPage(page + 1)} disabled={page >= Math.ceil(total / limit) - 1} className="flex-1 py-1.5 bg-amber-500 text-black rounded text-xs font-bold disabled:opacity-40">Próx. →</button>
+          </div>
+        </div>
 
-        <p className="text-gray-600 text-xs mt-6">O dashboard abre em uma nova aba para melhor visualização.</p>
+        {/* DETALHE */}
+        <div className="flex-1 overflow-y-auto space-y-4">
+          {!selected ? (
+            <div className="h-full flex items-center justify-center text-gray-600 text-sm">← Selecione um cliente</div>
+          ) : (
+            <>
+              {/* INFO */}
+              <div className="bg-gray-900 border border-gray-800 rounded-sm p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <div className="font-black text-lg">{selected.customer.name}</div>
+                    <div className="text-gray-400 text-sm">{selected.customer.email}</div>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded ${stageColors[selected.customer.stage]}`}>{stageLabels[selected.customer.stage]}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="bg-gray-800 rounded-sm p-2">
+                    <div className="text-amber-500 font-black text-lg">€{selected.totalSpent.toFixed(2)}</div>
+                    <div className="text-gray-500 text-xs">Total Gasto</div>
+                  </div>
+                  <div className="bg-gray-800 rounded-sm p-2">
+                    <div className="text-white font-black text-lg">{selected.totalOrders}</div>
+                    <div className="text-gray-500 text-xs">Pedidos</div>
+                  </div>
+                  <div className="bg-gray-800 rounded-sm p-2">
+                    <div className="text-white font-bold text-sm">{selected.customer.first_purchase_at ? new Date(selected.customer.first_purchase_at).toLocaleDateString('pt-BR') : '—'}</div>
+                    <div className="text-gray-500 text-xs">1ª Compra</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* PEDIDOS */}
+              {selected.orders.length > 0 && (
+                <div className="bg-gray-900 border border-gray-800 rounded-sm p-4">
+                  <h4 className="font-bold text-sm mb-3 flex items-center gap-2"><Package size={14} className="text-amber-500" /> Pedidos ({selected.orders.length})</h4>
+                  <div className="space-y-3">
+                    {selected.orders.map(order => (
+                      <div key={order.id} className="bg-gray-800 rounded-sm p-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <div className="text-xs text-gray-400">#{order.shopify_order_id} · {new Date(order.created_at).toLocaleDateString('pt-BR')}</div>
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${order.status === 'completed' ? 'bg-green-900/60 text-green-300' : order.status === 'cancelled' ? 'bg-red-900/60 text-red-300' : 'bg-yellow-900/60 text-yellow-300'}`}>{order.status}</span>
+                        </div>
+                        {order.items.map(item => (
+                          <div key={item.id} className="text-sm flex justify-between text-gray-300">
+                            <span>{item.product_title} {item.variant_title ? `(${item.variant_title})` : ''} ×{item.quantity}</span>
+                            <span className="text-amber-400">€{parseFloat(item.price).toFixed(2)}</span>
+                          </div>
+                        ))}
+                        <div className="border-t border-gray-700 mt-2 pt-2 flex justify-between text-sm font-bold">
+                          <span>Total</span><span className="text-amber-500">€{parseFloat(order.total_price).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TIMELINE */}
+              {selected.events.length > 0 && (
+                <div className="bg-gray-900 border border-gray-800 rounded-sm p-4">
+                  <h4 className="font-bold text-sm mb-3">📅 Timeline</h4>
+                  <div className="space-y-2">
+                    {selected.events.map(ev => (
+                      <div key={ev.id} className="flex gap-2 text-xs">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 flex-shrink-0"></div>
+                        <div>
+                          <span className="font-semibold text-white">{ev.event_type}</span>
+                          <span className="text-gray-500 ml-2">{new Date(ev.created_at).toLocaleString('pt-BR')}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
