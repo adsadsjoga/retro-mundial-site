@@ -282,7 +282,8 @@ export const DEFAULT_CONFIG = {
 
 // ─── HOOK ─────────────────────────────────────────────────────────────────────
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { loadRemoteConfig, saveRemoteConfig } from './supabaseConfig';
 
 function deepMerge(target, source) {
   if (!source) return target;
@@ -334,14 +335,31 @@ export function useConfig() {
     return DEFAULT_CONFIG;
   });
 
+  const saveTimer = useRef();
   const setConfig = useCallback((updater) => {
     setConfigState(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
+      // grava no backend (debounce p/ não disparar a cada tecla)
+      clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => saveRemoteConfig(next), 800);
       return next;
     });
   }, []);
 
+  // carrega a config compartilhada do backend ao abrir (todos os dispositivos)
+  useEffect(() => {
+    let cancelled = false;
+    loadRemoteConfig().then(remote => {
+      if (cancelled || !remote) return;
+      const merged = parseAndMergeConfig(JSON.stringify(remote));
+      setConfigState(merged);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); } catch {}
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // sincroniza entre abas do mesmo navegador
   useEffect(() => {
     function handleStorageChange(e) {
       if (e.key === STORAGE_KEY && e.newValue) {
