@@ -9,6 +9,7 @@ import HomePage from './pages/Home';
 import ShopPage from './pages/Shop';
 import ProductPage from './pages/Product';
 import CustomersPage from './pages/Customers';
+import AboutPage from './pages/About';
 import { ExternalLink } from 'lucide-react';
 
 // ─── META PIXEL ───────────────────────────────────────────────────────────────
@@ -139,11 +140,11 @@ export default function App() {
           onUpdate={updateCart} onRemove={removeFromCart} />
       )}
       {adminOpen && (
-        <AdminPanel config={config} setConfig={setConfig} resetConfig={resetConfig} onClose={() => setAdminOpen(false)} />
+        <AdminPanel config={activeConfig} setConfig={setConfig} resetConfig={resetConfig} onClose={() => setAdminOpen(false)} />
       )}
 
-      {/* Announcement bar */}
-      <div className="bg-amber-500 text-black text-xs font-bold text-center py-2 px-4 z-50 relative">
+      {/* Announcement bar — fixed no topo */}
+      <div className="fixed top-0 left-0 right-0 bg-amber-500 text-black text-xs font-bold text-center py-2 px-4 z-40">
         {config.site.announcementBar}
       </div>
 
@@ -184,6 +185,9 @@ export default function App() {
         )}
         {page === 'customers' && (
           <CustomersPage />
+        )}
+        {page === 'about' && (
+          <AboutPage onNavigate={navigate} />
         )}
       </main>
 

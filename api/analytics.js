@@ -112,44 +112,55 @@ async function handleMetaDaily(req, res, campaignId, since, until) {
   } catch { return res.status(200).json({ success: true, mock: true, daily: metaDailyMock(campaignId, s, u) }); }
 }
 
-// ── TIKTOK ───────────────────────────────────────────────────────────────────
-function tiktokMock() {
-  return { mock: true, campaigns: [
-    { id:'t1', name:'Brazil 2026 — TopView',       platform:'tiktok', impressions:320000, reach:210000, clicks:4160, spend:312, ctr:1.3, cpc:0.075, conversions:39, revenue:1442 },
-    { id:'t2', name:'Argentina Legacy — Spark Ads', platform:'tiktok', impressions:185000, reach:142000, clicks:2590, spend:198, ctr:1.4, cpc:0.076, conversions:24, revenue:887  },
-    { id:'t3', name:'Coleção Mundial — In-Feed',    platform:'tiktok', impressions:385000, reach:290000, clicks:3080, spend:268, ctr:0.8, cpc:0.087, conversions:28, revenue:1035 },
-  ]};
-}
+// ── TIKTOK (via Windsor AI — dados orgânicos reais) ──────────────────────────
+const WINDSOR_KEY = process.env.WINDSOR_API_KEY || 'edec4af248054e6840792437c3a3588e7151';
 
 async function handleTikTok(req, res, since, until) {
-  const token      = process.env.TIKTOK_ACCESS_TOKEN;
-  const advertiserId = process.env.TIKTOK_ADVERTISER_ID;
-  if (!token || !advertiserId) return res.status(200).json({ success: true, ...tiktokMock() });
-
-  const startDate = since || daysAgo(30);
-  const endDate   = until || today();
+  const s = since || daysAgo(30);
+  const u = until || today();
   try {
-    const params = new URLSearchParams({
-      advertiser_id: advertiserId, report_type: 'BASIC', page_size: 50,
-      dimensions: JSON.stringify(['campaign_id','campaign_name']),
-      metrics:    JSON.stringify(['spend','impressions','reach','clicks','ctr','cpc','conversion','value_per_conversion']),
-      start_date: startDate, end_date: endDate,
-    });
-    const r    = await fetch(`https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/?${params}`, {
-      headers: { 'Access-Token': token, 'Content-Type': 'application/json' },
-    });
+    const fields = 'date,datasource,account_name,source,campaign,clicks,spend,username,profile_views';
+    const url = `https://connectors.windsor.ai/all?api_key=${WINDSOR_KEY}&date_preset=last_30d&fields=${fields}&date_from=${s}&date_to=${u}`;
+    const r    = await fetch(url);
+    if (!r.ok) throw new Error(`Windsor ${r.status}`);
     const data = await r.json();
-    if (data.code !== 0) return res.status(200).json({ success: true, ...tiktokMock() });
-    const campaigns = (data.data?.list || []).map(c => ({
-      id: c.dimensions?.campaign_id, name: c.dimensions?.campaign_name, platform: 'tiktok',
-      impressions: +c.metrics?.impressions||0, reach: +c.metrics?.reach||0,
-      clicks: +c.metrics?.clicks||0, spend: +c.metrics?.spend||0,
-      ctr: +c.metrics?.ctr||0, cpc: +c.metrics?.cpc||0,
-      conversions: +c.metrics?.conversion||0,
-      revenue: (+c.metrics?.value_per_conversion||0) * (+c.metrics?.conversion||0),
-    }));
-    return res.status(200).json({ success: true, mock: false, campaigns });
-  } catch { return res.status(200).json({ success: true, ...tiktokMock() }); }
+
+    const rows = (data.data || []).filter(row => row.datasource === 'tiktok_organic');
+
+    // Agrega tudo em uma entrada de perfil (TikTok orgânico não tem campanhas pagas)
+    const totalViews  = rows.reduce((s, r) => s + (+(r.profile_views||0)), 0);
+    const totalClicks = rows.reduce((s, r) => s + (+(r.clicks||0)), 0);
+    const username    = rows[0]?.username || 'retro_mundial26';
+
+    // Série diária para o gráfico
+    const dailyMap = {};
+    rows.forEach(row => {
+      const day = (row.date || '').slice(0,10);
+      if (!day) return;
+      if (!dailyMap[day]) dailyMap[day] = { date: day, profile_views: 0, clicks: 0 };
+      dailyMap[day].profile_views += +(row.profile_views||0);
+      dailyMap[day].clicks        += +(row.clicks||0);
+    });
+    const daily = Object.values(dailyMap).sort((a,b) => a.date.localeCompare(b.date));
+
+    return res.status(200).json({
+      success: true, mock: false,
+      organic: true,
+      username,
+      totalViews,
+      totalClicks,
+      daily,
+      campaigns: [],
+    });
+  } catch (err) {
+    // sem dados TikTok disponíveis — retorna vazio (não mais mock)
+    return res.status(200).json({
+      success: true, mock: false, organic: true,
+      username: 'retro_mundial26',
+      totalViews: 0, totalClicks: 0, daily: [], campaigns: [],
+      error: err.message,
+    });
+  }
 }
 
 // ── SALES (SUPABASE) ─────────────────────────────────────────────────────────

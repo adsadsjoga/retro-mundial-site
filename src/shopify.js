@@ -166,8 +166,12 @@ export function mergeWithLocalConfig(shopifyProducts, localProducts) {
   // Mapeia por Shopify, busca local para copy + styling
   return shopifyProducts.filter(s => localByHandle[s.handle]).map(shopify => {
     const local = localByHandle[shopify.handle];
+    // usa imagem do Shopify; fallback para imagem local se Shopify não tiver nenhuma
+    const images = shopify.images?.length ? shopify.images : (local.images || []);
     return {
       ...shopify,
+      id: local.id || shopify.handle,
+      images,
       // ativa/desativa produto no frontend (não controlado pelo Shopify)
       active: local.active ?? true,
       // dados de apresentação locais (copy, badges, etc)
@@ -180,11 +184,13 @@ export function mergeWithLocalConfig(shopifyProducts, localProducts) {
       // cores/hex do config local (permite edição via admin)
       variants: shopify.variants.map(sv => {
         const localVariant = local.variants?.find(lv => lv.name.toLowerCase() === sv.name.toLowerCase());
+        // imagem da variante: Shopify > local > primeira imagem do produto
+        const imageUrl = sv.imageUrl || localVariant?.imageUrl || images[0] || '';
         return {
           ...sv,
           name: localVariant?.name || sv.name,
           hex: localVariant?.hex || '#888888',
-          imageUrl: localVariant?.imageUrl || sv.imageUrl || '',
+          imageUrl,
           inStock: sv.inStock ?? localVariant?.inStock ?? true,
         };
       }),
