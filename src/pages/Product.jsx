@@ -358,7 +358,7 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
         {relatedProducts.length > 0 && (
           <div className="mt-20">
             <h2 className="text-2xl sm:text-3xl font-black mb-8">You Might Also Like</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="flex flex-col sm:grid sm:grid-cols-3 gap-6">
               {relatedProducts.map(p => (
                 <RelatedCard key={p.id} product={p} onNavigate={onNavigate} />
               ))}

@@ -282,7 +282,7 @@ export const DEFAULT_CONFIG = {
 
 // ─── HOOK ─────────────────────────────────────────────────────────────────────
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 function deepMerge(target, source) {
   if (!source) return target;
@@ -299,40 +299,37 @@ function deepMerge(target, source) {
 
 const STORAGE_KEY = 'rm_config_v3';
 
+function parseAndMergeConfig(saved) {
+  const merged = deepMerge(DEFAULT_CONFIG, JSON.parse(saved));
+  const badToken = !merged.integrations.shopifyToken
+    || merged.integrations.shopifyToken.startsWith('shpss_')
+    || merged.integrations.shopifyToken.startsWith('shpat_')
+    || merged.integrations.shopifyToken.startsWith('atkn_');
+  if (badToken) merged.integrations.shopifyToken = DEFAULT_CONFIG.integrations.shopifyToken;
+  if (!merged.integrations.shopifyDomain || merged.integrations.shopifyDomain === 'shop.retromundial.com') {
+    merged.integrations.shopifyDomain = DEFAULT_CONFIG.integrations.shopifyDomain;
+  }
+  if (!merged.hero.backgroundImage) {
+    merged.hero.backgroundImage = DEFAULT_CONFIG.hero.backgroundImage;
+  }
+  merged.products = merged.products.map((p, i) => {
+    const def = DEFAULT_CONFIG.products.find(d => d.id === p.id || d.handle === p.handle);
+    return {
+      ...p,
+      shopifyHandle: p.shopifyHandle || def?.shopifyHandle || '',
+      sortOrder:     p.sortOrder     ?? (i + 1),
+    };
+  });
+  return merged;
+}
+
 export function useConfig() {
   const [config, setConfigState] = useState(() => {
     try {
-      // apaga versões ANTIGAS de localStorage (não a atual!)
       localStorage.removeItem('rm_config_v1');
       localStorage.removeItem('rm_config_v2');
-
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const merged = deepMerge(DEFAULT_CONFIG, JSON.parse(saved));
-        // tokens Admin não funcionam na Storefront API
-        const badToken = !merged.integrations.shopifyToken
-          || merged.integrations.shopifyToken.startsWith('shpss_')
-          || merged.integrations.shopifyToken.startsWith('shpat_')
-          || merged.integrations.shopifyToken.startsWith('atkn_');
-        if (badToken) merged.integrations.shopifyToken = DEFAULT_CONFIG.integrations.shopifyToken;
-        if (!merged.integrations.shopifyDomain || merged.integrations.shopifyDomain === 'shop.retromundial.com') {
-          merged.integrations.shopifyDomain = DEFAULT_CONFIG.integrations.shopifyDomain;
-        }
-        // hero image — nunca deixar em branco se DEFAULT tem imagem
-        if (!merged.hero.backgroundImage) {
-          merged.hero.backgroundImage = DEFAULT_CONFIG.hero.backgroundImage;
-        }
-        // migração: garante shopifyHandle e sortOrder
-        merged.products = merged.products.map((p, i) => {
-          const def = DEFAULT_CONFIG.products.find(d => d.id === p.id || d.handle === p.handle);
-          return {
-            ...p,
-            shopifyHandle: p.shopifyHandle || def?.shopifyHandle || '',
-            sortOrder:     p.sortOrder     ?? (i + 1),
-          };
-        });
-        return merged;
-      }
+      if (saved) return parseAndMergeConfig(saved);
     } catch {}
     return DEFAULT_CONFIG;
   });
@@ -343,6 +340,18 @@ export function useConfig() {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
       return next;
     });
+  }, []);
+
+  useEffect(() => {
+    function handleStorageChange(e) {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          setConfigState(parseAndMergeConfig(e.newValue));
+        } catch {}
+      }
+    }
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const resetConfig = useCallback(() => {
