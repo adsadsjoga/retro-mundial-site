@@ -4,6 +4,7 @@ import {
   Zap, Globe, Plus, Trash2, ToggleLeft, ToggleRight, RefreshCw,
   Wand2, ChevronDown, ChevronUp, AlertCircle, ExternalLink, Users, Search,
   Mail, Send, Bot, Eye, BarChart2, TrendingUp, TrendingDown,
+  ArrowUp, ArrowDown, GripVertical,
 } from 'lucide-react';
 import { ImageUpload, generateCopy } from './shared';
 import { DEFAULT_CONFIG } from '../config';
@@ -135,10 +136,31 @@ export default function AdminPanel({ config, setConfig, resetConfig, onClose }) 
 // ─── PRODUTOS ─────────────────────────────────────────────────────────────────
 
 function ProductsTab({ config, setConfig }) {
-  const [openId, setOpenId] = useState(config.products[0]?.id);
+  const [openId, setOpenId] = useState(null);
 
   function updateProduct(id, field, value) {
     setConfig(p => ({ ...p, products: p.products.map(pr => pr.id === id ? { ...pr, [field]: value } : pr) }));
+  }
+
+  // Move produto para cima/baixo na landing page (troca sortOrder)
+  function moveProduct(id, direction) {
+    setConfig(prev => {
+      const sorted = [...prev.products].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+      const idx = sorted.findIndex(p => p.id === id);
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= sorted.length) return prev;
+      // Troca os sortOrder
+      const aOrder = sorted[idx].sortOrder ?? idx;
+      const bOrder = sorted[swapIdx].sortOrder ?? swapIdx;
+      return {
+        ...prev,
+        products: prev.products.map(p => {
+          if (p.id === sorted[idx].id) return { ...p, sortOrder: bOrder };
+          if (p.id === sorted[swapIdx].id) return { ...p, sortOrder: aOrder };
+          return p;
+        }),
+      };
+    });
   }
 
   function updateCopy(id, field, value) {
@@ -177,17 +199,75 @@ function ProductsTab({ config, setConfig }) {
     setConfig(p => ({ ...p, products: p.products.map(pr => pr.id === product.id ? { ...pr, copy } : pr) }));
   }
 
+  // Produtos ordenados por sortOrder para exibição
+  const sortedProducts = [...config.products].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+  const activeOnLanding = sortedProducts.filter(p => p.active);
+
   return (
     <div>
       <h3 className="text-xl font-black mb-2">Produtos</h3>
       <p className="text-gray-400 text-sm mb-6">
-        Configure imagens, preços, variantes de cor e copywriting de cada produto.
-        <br />
-        <span className="text-amber-500">Preço Riscado</span> = campo "De:" que aparece como ~~€49,99~~ <strong>€36,99</strong> — cria percepção de desconto sem alterar o preço real.
+        Configure quais produtos aparecem na landing page e em que ordem. Ative o produto e use ↑↓ para reposicionar.
+      </p>
+
+      {/* ── ORDEM NA LANDING PAGE ── */}
+      <div className="mb-8 border border-amber-500/30 rounded-sm overflow-hidden">
+        <div className="bg-amber-500/10 px-4 py-3 flex items-center justify-between">
+          <div>
+            <h4 className="font-black text-sm text-amber-400 uppercase tracking-wide">Ordem na Landing Page</h4>
+            <p className="text-gray-500 text-xs mt-0.5">{activeOnLanding.length} produto{activeOnLanding.length !== 1 ? 's' : ''} visível{activeOnLanding.length !== 1 ? 'is' : ''} · Ative com o toggle e use ↑↓ para reordenar</p>
+          </div>
+          <span className="text-amber-500 text-xs font-bold">{activeOnLanding.length} / {config.products.length}</span>
+        </div>
+        <div className="divide-y divide-gray-800">
+          {sortedProducts.map((product, i) => {
+            const imgSrc = product.variants?.[0]?.imageUrl || product.images?.[0] || '';
+            const isFirst = i === 0;
+            const isLast = i === sortedProducts.length - 1;
+            return (
+              <div key={product.id} className={`flex items-center gap-3 px-4 py-3 transition-colors ${product.active ? 'bg-gray-900' : 'bg-gray-900/40'}`}>
+                {/* Posição */}
+                <span className={`text-xs font-black w-5 text-center flex-shrink-0 ${product.active ? 'text-amber-500' : 'text-gray-700'}`}>
+                  {product.active ? i + 1 : '—'}
+                </span>
+                {/* Thumbnail */}
+                <div className="w-9 h-9 rounded-sm overflow-hidden flex-shrink-0 bg-gray-800">
+                  {imgSrc
+                    ? <img src={imgSrc} alt="" className="w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center text-sm">⚽</div>
+                  }
+                </div>
+                {/* Nome + handle */}
+                <div className="flex-1 min-w-0">
+                  <p className={`font-bold text-sm truncate ${product.active ? 'text-white' : 'text-gray-500'}`}>{product.name}</p>
+                  <p className="text-gray-600 text-xs truncate">€{product.price?.toFixed?.(2)} · {product.handle}</p>
+                </div>
+                {/* Controles */}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button onClick={() => moveProduct(product.id, 'up')} disabled={isFirst}
+                    className="w-7 h-7 flex items-center justify-center rounded-sm text-gray-500 hover:text-white hover:bg-gray-700 disabled:opacity-20 disabled:cursor-not-allowed transition-colors">
+                    <ArrowUp size={13} />
+                  </button>
+                  <button onClick={() => moveProduct(product.id, 'down')} disabled={isLast}
+                    className="w-7 h-7 flex items-center justify-center rounded-sm text-gray-500 hover:text-white hover:bg-gray-700 disabled:opacity-20 disabled:cursor-not-allowed transition-colors">
+                    <ArrowDown size={13} />
+                  </button>
+                  <Toggle value={product.active} onChange={v => updateProduct(product.id, 'active', v)}
+                    label={product.active ? 'Na landing' : 'Oculto'} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <h4 className="font-black text-sm uppercase tracking-wide text-gray-400 mb-3">Configurar Produtos</h4>
+      <p className="text-gray-600 text-xs mb-4">
+        <span className="text-amber-500">Preço Riscado</span> = campo "De:" que aparece como ~~€49,99~~ <strong>€36,99</strong> — cria percepção de desconto.
       </p>
 
       <div className="space-y-3">
-        {config.products.map(product => (
+        {sortedProducts.map(product => (
           <div key={product.id} className="bg-gray-900 border border-gray-800 rounded-sm overflow-hidden">
             {/* Cabeçalho do produto */}
             <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-800/50 transition-colors"

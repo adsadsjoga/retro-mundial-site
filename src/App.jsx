@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useConfig } from './config';
 import { fetchShopifyProducts, mergeWithLocalConfig } from './shopify';
 import Navbar from './components/Navbar';
@@ -31,6 +31,7 @@ export default function App() {
   const { config, setConfig, resetConfig } = useConfig();
   const [products, setProducts] = useState(config.products);
   const [page, setPage] = useState('home');
+  const shopifyCache = useRef([]);
   const [currentProduct, setCurrentProduct] = useState(null);
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -40,25 +41,56 @@ export default function App() {
   // Meta Pixel
   useMetaPixel(config.integrations?.pixelId);
 
-  // Carrega produtos: Shopify se disponível, senão locais
+  // Busca Shopify quando token/domain mudam; cacheia para re-merge sem nova chamada
   useEffect(() => {
     const { shopifyDomain, shopifyToken } = config.integrations || {};
+    if (!shopifyDomain || !shopifyToken) { setProducts(config.products); return; }
 
-    if (shopifyDomain && shopifyToken) {
-      // Shopify disponível — busca e merge com config local
-      fetchShopifyProducts(shopifyDomain, shopifyToken)
-        .then(shopifyProducts => {
-          setProducts(mergeWithLocalConfig(shopifyProducts, config.products));
-        })
-        .catch(err => {
-          console.warn('Shopify fetch failed:', err.message);
-          setProducts(config.products); // fallback para local
+    fetchShopifyProducts(shopifyDomain, shopifyToken)
+      .then(shopifyProducts => {
+        shopifyCache.current = shopifyProducts;
+        // Adiciona ao config qualquer produto novo da Shopify (fica inativo por padrão)
+        setConfig(prev => {
+          const existingHandles = new Set((prev.products || []).map(p => p.shopifyHandle || p.handle));
+          const newOnes = shopifyProducts
+            .filter(sp => !existingHandles.has(sp.handle))
+            .map((sp, i) => ({
+              id: sp.handle,
+              handle: sp.handle,
+              shopifyHandle: sp.handle,
+              name: sp.title,
+              country: '',
+              badge: '',
+              badgeColor: '',
+              price: sp.price,
+              compareAtPrice: null,
+              stock: null,
+              active: false,
+              sortOrder: 999 + i,
+              variants: sp.variants.map(v => ({
+                id: v.id, name: v.name, hex: '#888888',
+                imageUrl: v.imageUrl || '', shopifyVariantId: v.shopifyVariantId || v.id,
+                inStock: v.inStock ?? true,
+              })),
+              copy: {}, sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+            }));
+          return newOnes.length ? { ...prev, products: [...prev.products, ...newOnes] } : prev;
         });
-    } else {
-      // Sem token — usa apenas produtos locais
-      setProducts(config.products);
+        setProducts(mergeWithLocalConfig(shopifyProducts, config.products));
+      })
+      .catch(err => {
+        console.warn('Shopify fetch failed:', err.message);
+        setProducts(config.products);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.integrations?.shopifyToken, config.integrations?.shopifyDomain]);
+
+  // Re-merge quando o admin edita config.products (sem nova chamada à API)
+  useEffect(() => {
+    if (shopifyCache.current.length > 0) {
+      setProducts(mergeWithLocalConfig(shopifyCache.current, config.products));
     }
-  }, [config.products, config.integrations?.shopifyToken, config.integrations?.shopifyDomain]);
+  }, [config.products]);
 
   // Popup com delay configurável — 1× por sessão
   useEffect(() => {

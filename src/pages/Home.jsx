@@ -6,7 +6,9 @@ export default function HomePage({ products, config, onNavigate, onAddToCart }) 
   const [email, setEmail] = useState('');
   const [emailDone, setEmailDone] = useState(false);
   const { hero, trustBadges } = config;
-  const activeProducts = (products || []).filter(p => p.active);
+  const activeProducts = (products || [])
+    .filter(p => p.active)
+    .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
   const activeCoupon = config.discounts?.find(d => d.active);
 
   // Scroll reveal

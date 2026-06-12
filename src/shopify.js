@@ -163,27 +163,27 @@ export function mergeWithLocalConfig(shopifyProducts, localProducts) {
     localByHandle[key] = p;
   });
 
-  // Mapeia por Shopify, busca local para copy + styling
-  return shopifyProducts.filter(s => localByHandle[s.handle]).map(shopify => {
+  // Inclui TODOS os produtos do Shopify; config local enriquece copy/styling
+  return shopifyProducts.map(shopify => {
     const local = localByHandle[shopify.handle];
     // usa imagem do Shopify; fallback para imagem local se Shopify não tiver nenhuma
-    const images = shopify.images?.length ? shopify.images : (local.images || []);
+    const images = shopify.images?.length ? shopify.images : (local?.images || []);
     return {
       ...shopify,
-      id: local.id || shopify.handle,
+      id: local?.id ?? shopify.handle,
       images,
-      // ativa/desativa produto no frontend (não controlado pelo Shopify)
-      active: local.active ?? true,
+      // produtos sem config local ficam inativos por padrão (admin escolhe ativar)
+      active: local?.active ?? false,
+      sortOrder: local?.sortOrder ?? 999,
       // dados de apresentação locais (copy, badges, etc)
-      name: local.name || shopify.title,
-      country: local.country || '',
-      badge: local.badge || '',
-      badgeColor: local.badgeColor || '',
-      copy: local.copy || {},
-      sizes: local.sizes || ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
-      // cores/hex do config local (permite edição via admin)
+      name: local?.name || shopify.title,
+      country: local?.country || '',
+      badge: local?.badge || '',
+      badgeColor: local?.badgeColor || '',
+      copy: local?.copy || {},
+      sizes: local?.sizes || ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
       variants: shopify.variants.map(sv => {
-        const localVariant = local.variants?.find(lv => lv.name.toLowerCase() === sv.name.toLowerCase());
+        const localVariant = local?.variants?.find(lv => lv.name.toLowerCase() === sv.name.toLowerCase());
         // imagem da variante: Shopify > local > primeira imagem do produto
         const imageUrl = sv.imageUrl || localVariant?.imageUrl || images[0] || '';
         return {
