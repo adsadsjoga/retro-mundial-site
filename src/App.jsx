@@ -119,12 +119,16 @@ export default function App() {
   // ─── CARRINHO ────────────────────────────────────────────────────────────────
 
   function addToCart(product, variant, size, qty = 1) {
-    if (window.fbq) window.fbq('track', 'AddToCart', {
-      content_name: product.name,
-      content_ids: [product.id],
-      value: product.salePrice || product.price,
-      currency: 'EUR',
-    });
+    if (window.fbq) {
+      window.fbq('track', 'AddToCart', {
+        content_name: product.name,
+        content_type: 'product',
+        content_ids: [product.id],
+        value: (product.salePrice || product.price) * qty,
+        currency: 'EUR',
+        num_items: qty,
+      });
+    }
 
     setCart(prev => {
       const key = { id: product.id, variantId: variant?.id, size };

@@ -21,11 +21,15 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
 
   // Rastreamento Meta Pixel
   useEffect(() => {
-    if (window.fbq) window.fbq('track', 'ViewContent', {
-      content_name: product.name,
-      value: product.compareAtPrice || product.price,
-      currency: 'EUR',
-    });
+    if (window.fbq) {
+      window.fbq('track', 'ViewContent', {
+        content_name: product.name,
+        content_type: 'product',
+        content_ids: [product.shopifyProductId || product.id],
+        value: product.compareAtPrice || product.price,
+        currency: 'EUR',
+      });
+    }
   }, [product]);
 
   // Galeria: imagem da variante selecionada + imagens extras do produto
@@ -37,7 +41,16 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
   const currentImage = galleryImages[imgIdx] || null;
 
   function handleAddToCart() {
-    if (window.fbq) window.fbq('track', 'AddToCart', { content_name: product.name, value: product.price, currency: 'EUR' });
+    if (window.fbq) {
+      window.fbq('track', 'AddToCart', {
+        content_name: product.name,
+        content_type: 'product',
+        content_ids: [selectedVariant?.shopifyVariantId || product.id],
+        value: product.price * qty,
+        currency: 'EUR',
+        num_items: qty,
+      });
+    }
     onAddToCart(product, selectedVariant, selectedSize, qty);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -46,6 +59,18 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
   async function handleBuyNow() {
     const { shopifyDomain, shopifyToken } = config.integrations || {};
     setCheckingOut(true);
+
+    // Track InitiateCheckout event
+    if (window.fbq) {
+      window.fbq('track', 'InitiateCheckout', {
+        content_name: product.name,
+        content_type: 'product',
+        content_ids: [selectedVariant?.shopifyVariantId || product.id],
+        value: product.price * qty,
+        currency: 'EUR',
+        num_items: qty,
+      });
+    }
 
     if (shopifyDomain && shopifyToken && selectedVariant?.shopifyVariantId) {
       try {

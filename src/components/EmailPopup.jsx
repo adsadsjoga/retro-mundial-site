@@ -18,7 +18,12 @@ export default function EmailPopup({ config, onClose }) {
         });
       } catch {}
     }
-    if (window.fbq) window.fbq('track', 'Lead', { content_name: 'email_popup' });
+    if (window.fbq) {
+      window.fbq('track', 'Lead', {
+        content_name: 'email_popup',
+        content_type: 'newsletter',
+      });
+    }
     setDone(true);
     setTimeout(onClose, 3200);
   }

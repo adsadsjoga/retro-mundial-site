@@ -45,7 +45,14 @@ export default function Cart({ items, config, onClose, onUpdate, onRemove }) {
     setLoading(false);
   }
 
-  if (window.fbq) window.fbq('track', 'ViewCart');
+  if (window.fbq) {
+    const totalValue = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    window.fbq('track', 'ViewCart', {
+      value: totalValue,
+      currency: 'EUR',
+      num_items: items.length,
+    });
+  }
 
   return (
     <div className="fixed inset-0 z-40">

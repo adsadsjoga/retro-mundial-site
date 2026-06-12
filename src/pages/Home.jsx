@@ -348,7 +348,16 @@ export default function HomePage({ products, config, onNavigate }) {
           )}
           {!emailDone ? (
             <form
-              onSubmit={e => { e.preventDefault(); if (window.fbq) window.fbq('track', 'Lead', { content_name: 'home_email' }); setEmailDone(true); }}
+              onSubmit={e => {
+                e.preventDefault();
+                if (window.fbq) {
+                  window.fbq('track', 'Lead', {
+                    content_name: 'home_email',
+                    content_type: 'newsletter',
+                  });
+                }
+                setEmailDone(true);
+              }}
               className="flex flex-col sm:flex-row gap-2">
               <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
                 placeholder="your email"
