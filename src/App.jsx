@@ -175,17 +175,13 @@ export default function App() {
         <AdminPanel config={activeConfig} setConfig={setConfig} resetConfig={resetConfig} onClose={() => setAdminOpen(false)} />
       )}
 
-      {/* Announcement bar — fixed no topo */}
-      <div className="fixed top-0 left-0 right-0 bg-amber-500 text-black text-xs font-bold text-center py-2 px-4 z-40">
-        {config.site.announcementBar}
-      </div>
-
       <Navbar
         cartCount={cartCount}
         onCartOpen={() => setCartOpen(true)}
         onNavigate={navigate}
         currentPage={page}
         onAdminClick={() => setAdminOpen(true)}
+        announcementText={config.site.announcementBar}
       />
 
       <main>
@@ -206,11 +202,11 @@ export default function App() {
         {page === 'story' && (
           <div className="min-h-screen pt-32 pb-20 flex items-center justify-center text-center px-4">
             <div>
-              <h1 className="text-6xl font-black mb-6">NOSSA HISTÓRIA</h1>
-              <p className="text-gray-400 max-w-md mx-auto mb-8">Em breve. Explore a coleção.</p>
+              <h1 className="text-6xl font-black mb-6">OUR STORY</h1>
+              <p className="text-gray-400 max-w-md mx-auto mb-8">Coming soon. Explore the collection.</p>
               <button onClick={() => navigate('shop')}
                 className="bg-amber-500 text-black font-black px-8 py-4 rounded-sm uppercase tracking-wide hover:bg-amber-400 transition-colors">
-                Ver Coleção
+                View Collection
               </button>
             </div>
           </div>
@@ -229,7 +225,7 @@ export default function App() {
       <div className="fixed bottom-0 left-0 right-0 z-20 md:hidden bg-black/95 backdrop-blur-sm border-t border-gray-800 p-3">
         <button onClick={() => navigate('shop')}
           className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black py-3.5 text-sm tracking-widest uppercase rounded-sm transition-colors">
-          Ver Coleção — A partir de €{Math.min(...products.map(p => p.price)).toFixed(2)}
+          Shop Collection — From €{Math.min(...products.map(p => p.price)).toFixed(2)}
         </button>
       </div>
     </div>
@@ -243,47 +239,102 @@ function Footer({ config, onNavigate }) {
   const domain = shopifyDomain?.replace('.myshopify.com', '') ? `${shopifyDomain.replace('.myshopify.com','')}.com` : 'retromundial.com';
 
   return (
-    <footer className="bg-gray-900 border-t border-gray-800 py-16 px-4 pb-24 md:pb-16">
+    <footer className="bg-black border-t border-gray-900 pt-16 pb-28 md:pb-16 px-5 sm:px-10">
       <div className="max-w-7xl mx-auto">
-        <div className="grid md:grid-cols-3 gap-10 mb-12">
-          <div>
-            <div className="text-xl font-black tracking-tighter mb-1">RETRO MUNDIAL</div>
-            <div className="text-amber-500 text-xs font-bold tracking-[0.3em] uppercase mb-4">Moments That Matter</div>
-            <p className="text-gray-400 text-sm leading-relaxed">Premium oversized football apparel celebrating World Cup heritage.</p>
+
+        {/* top row — brand + columns */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-10 mb-14">
+
+          {/* brand */}
+          <div className="col-span-2 md:col-span-1">
+            <div className="text-lg font-black tracking-tighter mb-0.5">RETRO MUNDIAL</div>
+            <div className="text-amber-500 text-[9px] font-black tracking-[0.3em] uppercase mb-5">Moments That Matter</div>
+            <p className="text-gray-500 text-xs leading-relaxed max-w-[200px]">
+              Premium oversized shirts. World Cup. 500 units per design.
+            </p>
+            <div className="flex gap-4 mt-5">
+              <a href="https://instagram.com/retro_mundial26" target="_blank" rel="noreferrer"
+                className="text-gray-600 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest">
+                Instagram
+              </a>
+              <a href="https://tiktok.com/@retro_mundial26" target="_blank" rel="noreferrer"
+                className="text-gray-600 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest">
+                TikTok
+              </a>
+            </div>
           </div>
+
+          {/* coleção */}
           <div>
-            <h4 className="font-black text-xs uppercase tracking-widest mb-4">Coleção</h4>
-            <ul className="space-y-2">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4">Collection</h4>
+            <ul className="space-y-3">
               {config.products.filter(p => p.active).map(p => (
                 <li key={p.id}>
                   <button onClick={() => onNavigate('product', p)}
-                    className="text-gray-400 hover:text-white text-sm transition-colors text-left">
+                    className="text-gray-500 hover:text-white text-xs transition-colors text-left">
                     {p.name}
                   </button>
                 </li>
               ))}
             </ul>
           </div>
+
+          {/* suporte */}
           <div>
-            <h4 className="font-black text-xs uppercase tracking-widest mb-4">Ajuda</h4>
-            <ul className="space-y-2 text-sm">
-              {['Envio & Devoluções','Guia de Tamanhos','FAQ','Contato'].map(i => (
-                <li key={i}>
-                  <a href={`https://${domain}/pages/${i.toLowerCase().replace(/ /g,'-').replace('&','e')}`}
-                    target="_blank" rel="noreferrer" className="text-gray-400 hover:text-white transition-colors">
-                    {i}
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4">Support</h4>
+            <ul className="space-y-3 text-xs text-gray-500">
+              {[
+                ['Shipping & Returns', `https://${domain}/pages/shipping-and-returns`],
+                ['Size Guide',         `https://${domain}/pages/size-guide`],
+                ['FAQ',                `https://${domain}/pages/faq`],
+                ['Contact',            `mailto:adsadsjoga@gmail.com`],
+              ].map(([label, href]) => (
+                <li key={label}>
+                  <a href={href} target="_blank" rel="noreferrer"
+                    className="hover:text-white transition-colors">
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* empresa */}
+          <div>
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4">Company</h4>
+            <ul className="space-y-3 text-xs text-gray-500">
+              <li>
+                <button onClick={() => onNavigate('about')} className="hover:text-white transition-colors text-left">
+                  Our Story
+                </button>
+              </li>
+              {[
+                ['Terms & Conditions', `https://${domain}/policies/terms-of-service`],
+                ['Privacy Policy',     `https://${domain}/policies/privacy-policy`],
+                ['Cookie Policy',      `https://${domain}/policies/privacy-policy`],
+              ].map(([label, href]) => (
+                <li key={label}>
+                  <a href={href} target="_blank" rel="noreferrer"
+                    className="hover:text-white transition-colors">
+                    {label}
                   </a>
                 </li>
               ))}
             </ul>
           </div>
         </div>
-        <div className="border-t border-gray-800 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-gray-500">
-          <p>© 2026 Retro Mundial. Todos os direitos reservados.</p>
-          <a href={`https://${domain}`} target="_blank" rel="noreferrer"
-            className="flex items-center gap-1.5 hover:text-white transition-colors">
-            {domain} <ExternalLink size={11} />
-          </a>
+
+        {/* bottom bar */}
+        <div className="border-t border-gray-900 pt-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <p className="text-[10px] text-gray-700">
+            © 2026 Retro Mundial. All rights reserved.
+          </p>
+          <div className="flex items-center gap-3 text-gray-700 text-[10px]">
+            <span>Visa</span><span>·</span>
+            <span>Mastercard</span><span>·</span>
+            <span>PayPal</span><span>·</span>
+            <span>Shop Pay</span>
+          </div>
         </div>
       </div>
     </footer>

@@ -73,9 +73,9 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-xs text-gray-500 py-6 flex-wrap">
-          <button onClick={() => onNavigate('home')} className="hover:text-white transition-colors">Início</button>
+          <button onClick={() => onNavigate('home')} className="hover:text-white transition-colors">Home</button>
           <ChevronRight size={12} />
-          <button onClick={() => onNavigate('shop')} className="hover:text-white transition-colors">Loja</button>
+          <button onClick={() => onNavigate('shop')} className="hover:text-white transition-colors">Shop</button>
           <ChevronRight size={12} />
           <span className="text-gray-300">{product.name}</span>
         </div>
@@ -139,7 +139,7 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
               <Badge label={product.badge} colorClass={product.badgeColor} />
               {product.stock <= 15 && (
                 <span className="text-amber-400 text-xs font-bold uppercase tracking-wide animate-pulse">
-                  Só {product.stock} restantes!
+                  Only {product.stock} left!
                 </span>
               )}
             </div>
@@ -148,7 +148,7 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
               {product.copy?.headline || product.name}
             </h1>
             <p className="text-gray-400 text-base mb-4">
-              {product.copy?.subtitle || 'Edição limitada · 500 unidades'}
+              {product.copy?.subtitle || 'Limited edition · 500 units'}
             </p>
 
             <div className="flex items-center gap-3 mb-6">
@@ -205,7 +205,7 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
                   ))}
                 </div>
                 {!selectedVariant?.inStock && (
-                  <p className="text-red-400 text-xs mt-2">Esta cor está esgotada.</p>
+                  <p className="text-red-400 text-xs mt-2">This colour is sold out.</p>
                 )}
               </div>
             )}
@@ -214,11 +214,11 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
             <div className="mb-6">
               <div className="flex justify-between items-center mb-3">
                 <p className="text-sm font-bold uppercase tracking-wide">
-                  Tamanho: <span className="text-amber-500">{selectedSize}</span>
+                  Size: <span className="text-amber-500">{selectedSize}</span>
                 </p>
                 <button onClick={() => setSizeGuideOpen(!sizeGuideOpen)}
                   className="text-xs text-gray-400 hover:text-white flex items-center gap-1 transition-colors">
-                  Guia de tamanhos {sizeGuideOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  Size guide {sizeGuideOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                 </button>
               </div>
               <div className="flex gap-2 flex-wrap">
@@ -239,7 +239,7 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
                   <table className="w-full text-xs min-w-[300px]">
                     <thead>
                       <tr className="text-gray-400 border-b border-gray-700">
-                        <th className="py-2 text-left font-bold">Tamanho</th>
+                        <th className="py-2 text-left font-bold">Size</th>
                         <th className="py-2 font-bold">Peito</th>
                         <th className="py-2 font-bold">Comprimento</th>
                         <th className="py-2 font-bold">Ombro</th>
@@ -256,7 +256,7 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
                       ))}
                     </tbody>
                   </table>
-                  <p className="text-gray-500 mt-3 text-xs">Corte oversized — se quiser mais justo, peça um tamanho abaixo.</p>
+                  <p className="text-gray-500 mt-3 text-xs">Oversized cut — size down if you prefer a slimmer fit.</p>
                 </div>
               )}
             </div>
@@ -276,18 +276,18 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
                 className={`flex-1 font-black py-3 text-sm tracking-widest uppercase rounded-sm transition-all ${
                   added ? 'bg-green-500 text-white' : 'bg-white hover:bg-gray-100 text-black'
                 }`}>
-                {added ? '✓ Adicionado!' : 'Adicionar ao Carrinho'}
+                {added ? '✓ Added!' : 'Add to Cart'}
               </button>
             </div>
 
             <button onClick={handleBuyNow} disabled={checkingOut}
               className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-black font-black py-4 rounded-sm transition-all tracking-widest uppercase text-sm flex items-center justify-center gap-2 mb-6">
-              {checkingOut ? 'Aguarde...' : <><span>{product.copy?.cta || 'Comprar Agora'}</span> <ExternalLink size={14} /></>}
+              {checkingOut ? 'Please wait...' : <><span>{product.copy?.cta || 'Buy Now'}</span> <ExternalLink size={14} /></>}
             </button>
 
             {/* Trust badges */}
             <div className="grid grid-cols-3 gap-3 mb-6">
-              {[[RotateCcw,'30 Dias','Devolução grátis'],[Truck,'Frete Grátis','Acima de €50'],[Shield,'100% Seguro','256-bit SSL']].map(([Icon,t,s]) => (
+              {[[RotateCcw,'30 Days','Free returns'],[Truck,'Free Shipping','Orders over €50'],[Shield,'100% Secure','256-bit SSL']].map(([Icon,t,s]) => (
                 <div key={t} className="bg-gray-900 p-3 rounded-sm text-center">
                   <Icon size={18} className="text-amber-500 mx-auto mb-1.5" />
                   <div className="text-xs font-bold">{t}</div>
@@ -300,7 +300,7 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
             <div className="border-t border-gray-800 pt-5">
               <h3 className="font-black text-xs uppercase tracking-widest mb-4">Especificações</h3>
               <div className="space-y-2">
-                {[['Material','100% Algodão Orgânico GOTS'],['Corte','Oversized — tamanho abaixo para regular'],['Edição','Limitada · 500 unidades numeradas'],['Estampa','Heritage, serigrafia premium'],['Lavagem','Água fria, secar à sombra']].map(([k,v]) => (
+                {[['Material','100% Organic Cotton GOTS'],['Cut','Oversized — size down for a regular fit'],['Edition','Limited · 500 numbered units'],['Print','Heritage, premium screen print'],['Care','Cold wash, dry in shade']].map(([k,v]) => (
                   <div key={k} className="flex gap-4 text-sm">
                     <span className="text-gray-500 w-20 flex-shrink-0">{k}</span>
                     <span className="text-gray-300">{v}</span>
@@ -328,7 +328,7 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
       <div className="fixed bottom-0 left-0 right-0 z-20 md:hidden bg-black/95 backdrop-blur-sm border-t border-gray-800 p-3">
         <button onClick={handleBuyNow} disabled={checkingOut}
           className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black py-3.5 text-sm tracking-widest uppercase rounded-sm transition-colors">
-          {checkingOut ? 'Aguarde...' : `${product.copy?.cta || 'Comprar Agora'} — €${product.price.toFixed(2)}`}
+          {checkingOut ? 'Please wait...' : `${product.copy?.cta || 'Buy Now'} — €${product.price.toFixed(2)}`}
         </button>
       </div>
     </div>

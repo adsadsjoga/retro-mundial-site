@@ -6,7 +6,7 @@ export const DEFAULT_CONFIG = {
   adminPassword: 'retro2026',
 
   site: {
-    announcementBar: '🏆 FRETE GRÁTIS ACIMA DE €50 · USE RETRO15 PARA 15% OFF NA 1ª COMPRA',
+    announcementBar: '🏆 FREE SHIPPING OVER €50 · USE RETRO15 FOR 15% OFF YOUR FIRST ORDER',
     popupDelaySecs: 9,
     freeShippingThreshold: 50,
   },
@@ -33,15 +33,51 @@ export const DEFAULT_CONFIG = {
   },
 
   trustBadges: [
-    { text: 'Edição limitada · 500 unidades' },
-    { text: 'Frete grátis acima de €50' },
-    { text: 'Garantia de 30 dias' },
-    { text: 'Checkout 100% seguro' },
+    { text: 'Limited edition · 500 units' },
+    { text: 'Free shipping over €50' },
+    { text: '30-day guarantee' },
+    { text: '100% secure checkout' },
   ],
 
   discounts: [
-    { code: 'RETRO15', percent: 15, label: '15% off 1ª compra', active: true },
+    { code: 'RETRO15', percent: 15, label: '15% off first order', active: true },
   ],
+
+  // ─── HOMEPAGE — secções editáveis pelo Admin (aba "Aparência do Site") ───
+  homepage: {
+    // Imagens dos cards de país na secção "Escolhe o teu país".
+    // Se vazio, mostra a bandeira emoji como fallback.
+    countries: [
+      { key: 'Brazil',    image: '' },
+      { key: 'Argentina', image: '' },
+      { key: 'Germany',   image: '' },
+      { key: 'England',   image: '' },
+      { key: 'France',    image: '' },
+      { key: 'Spain',     image: '' },
+    ],
+    // Bloco editorial "500" — aceita imagem OU vídeo de fundo
+    editorial: {
+      mediaType: 'none',          // 'none' | 'image' | 'video'
+      mediaUrl: '',               // URL da imagem ou vídeo (mp4/webm)
+      eyebrow: 'Every design',
+      titleLine1: '500 pieces.',
+      titleLine2: 'Then it\'s gone.',
+      text: 'No second run. No restock. When the number\'s up, the piece becomes archive. Yours could be one of them.',
+      ctaLabel: 'See what\'s left',
+      ctaTarget: 'shop',          // 'home' | 'shop' | 'about' ou URL externa
+    },
+    // Secção "A nossa história" — 4 imagens (colagem) + textos + links
+    story: {
+      images: ['', '', '', ''],   // 4 imagens; vazio = usa foto dos produtos
+      imageLinks: ['', '', '', ''], // destino de cada imagem: vazio = produto correspondente
+      eyebrow: 'Our story',
+      title: 'We don\'t make\ntraining gear.\nWe make archive.',
+      text1: 'Every Retro Mundial shirt holds a moment from World Cup history. The goal that wasn\'t. The final nobody saw coming. The farewell of a legend.',
+      text2: '100% GOTS-certified organic cotton. Built to last decades, not seasons.',
+      ctaLabel: 'Who we are',
+      ctaTarget: 'about',
+    },
+  },
 
   // Cada produto tem variantes de cor com fotos próprias
   products: [
@@ -61,14 +97,14 @@ export const DEFAULT_CONFIG = {
       shopifyProductId: '',    // GID do produto no Shopify (preenchido automaticamente)
       copy: {
         headline: 'Brazil World Cup 2026',
-        subtitle: 'Cinco títulos mundiais. Uma camisa intemporal.',
-        description: 'Inspirada na gloriosa história da Seleção. Cada fio carrega o peso de cinco Copas do Mundo — do Pelé à geração Ronaldo. Um arquivo vivo da maior nação do futebol.',
+        subtitle: 'Five world titles. One timeless shirt.',
+        description: 'Inspired by the Seleção\'s glorious history. Every thread carries the weight of five World Cups — from Pelé to the Ronaldo generation. A living archive of football\'s greatest nation.',
         bullets: [
-          '100% algodão orgânico certificado GOTS',
-          'Corte oversized premium — confortável dentro e fora de campo',
-          'Edição limitada de 500 unidades numeradas',
+          '100% GOTS-certified organic cotton',
+          'Premium oversized cut — comfortable on and off the pitch',
+          'Limited edition of 500 numbered units',
         ],
-        cta: 'Comprar Agora',
+        cta: 'Buy Now',
       },
       // Variantes de cor: cada cor tem sua foto e ID do Shopify
       variants: [
@@ -95,14 +131,14 @@ export const DEFAULT_CONFIG = {
       shopifyProductId: '',
       copy: {
         headline: 'Argentina Legacy',
-        subtitle: 'Da mão de Deus à geração dourada de Messi.',
-        description: 'La Albiceleste vive em cada ponto desta camisa. De Maradona a Messi, da México 86 ao Qatar 2022 — a jornada mais épica do futebol mundial em uma edição de colecionador.',
+        subtitle: 'Hand of God to Messi\'s golden generation.',
+        description: 'La Albiceleste lives in every stitch of this shirt. From Maradona to Messi, from Mexico \'86 to Qatar 2022 — the most epic journey in world football as a collector\'s edition.',
         bullets: [
-          'Algodão orgânico com toque premium',
-          'Gráfico heritage inspirado na Copa de 1986',
-          'Numerada — apenas 500 unidades no mundo',
+          'Organic cotton with a premium feel',
+          'Heritage graphic inspired by the 1986 World Cup',
+          'Numbered — only 500 units in the world',
         ],
-        cta: 'Adicionar à Coleção',
+        cta: 'Add to Collection',
       },
       variants: [
         { id: 'ar-azul', name: 'Azul Celeste', hex: '#74ACDF', imageUrl: '', shopifyVariantId: '', inStock: true },
@@ -127,14 +163,14 @@ export const DEFAULT_CONFIG = {
       shopifyProductId: '',
       copy: {
         headline: 'Germany Precision',
-        subtitle: 'Quatro títulos. Uma engenharia perfeita.',
-        description: 'Construída com a precisão alemã que conquistou quatro Copas do Mundo. Do Kaiser Franz ao Völler, da Hungria 1954 ao Brasil 2014 — a Die Mannschaft em forma de arte.',
+        subtitle: 'Four titles. A perfect engineering.',
+        description: 'Built with the German precision that won four World Cups. From Kaiser Franz to Völler, from Hungary 1954 to Brazil 2014 — Die Mannschaft as a form of art.',
         bullets: [
-          'Tecido premium resistente e durável',
-          'Design minimalista inspirado na precisão alemã',
-          'Edição numerada de colecionador',
+          'Durable premium fabric',
+          'Minimalist design inspired by German precision',
+          'Numbered collector\'s edition',
         ],
-        cta: 'Comprar Agora',
+        cta: 'Buy Now',
       },
       variants: [
         { id: 'de-preto', name: 'Preto', hex: '#1a1a1a', imageUrl: '', shopifyVariantId: '', inStock: true },
@@ -160,14 +196,14 @@ export const DEFAULT_CONFIG = {
       shopifyProductId: '',
       copy: {
         headline: 'England Tradition',
-        subtitle: 'Onde o futebol nasceu.',
-        description: 'Os Three Lions rugem em um corte oversized feito para as arquibancadas. A terra que inventou o futebol merece uma camisa à altura da sua história — de Wembley 1966 aos sonhos atuais.',
+        subtitle: 'Where football was born.',
+        description: 'The Three Lions roar in an oversized cut made for the terraces. The land that invented football deserves a shirt worthy of its history — from Wembley 1966 to today\'s dreams.',
         bullets: [
-          'Corte oversized — perfeito para usar no dia a dia',
-          'Detalhes bordados premium',
-          'Certificado GOTS — produção sustentável',
+          'Oversized cut — perfect for everyday wear',
+          'Premium embroidered details',
+          'GOTS certified — sustainable production',
         ],
-        cta: 'Comprar Agora',
+        cta: 'Buy Now',
       },
       variants: [
         { id: 'en-branco', name: 'Branco', hex: '#F5F5F5', imageUrl: '', shopifyVariantId: '', inStock: true },
@@ -193,14 +229,14 @@ export const DEFAULT_CONFIG = {
       shopifyProductId: '',
       copy: {
         headline: 'France Elegance',
-        subtitle: 'Les Bleus, reimaginados.',
-        description: 'Os campeões de 1998 e 2018 merecem nada menos que a perfeição. Do Zidane ao Mbappé, da Copa em casa à dominação no Catar — a elegância francesa em algodão premium.',
+        subtitle: 'Les Bleus, reimagined.',
+        description: 'The 1998 and 2018 champions deserve nothing less than perfection. From Zidane to Mbappé, from the home World Cup to Qatar domination — French elegance in premium cotton.',
         bullets: [
-          'Silhueta oversized de inspiração Parisiense',
-          'Gráfico exclusivo da geração campeã',
-          'Edição limitada — 500 unidades',
+          'Parisian-inspired oversized silhouette',
+          'Exclusive graphic of the champion generation',
+          'Limited edition — 500 units',
         ],
-        cta: 'Comprar Agora',
+        cta: 'Buy Now',
       },
       variants: [
         { id: 'fr-azul', name: 'Azul', hex: '#002395', imageUrl: '', shopifyVariantId: '', inStock: true },
@@ -225,14 +261,14 @@ export const DEFAULT_CONFIG = {
       shopifyProductId: '',
       copy: {
         headline: 'Spain Passion',
-        subtitle: 'La Furia Roja. Tiki-taka em algodão.',
-        description: 'Três Eurocopas consecutivas. Quatro Copas do Mundo. A Espanha que reinventou o futebol com Del Bosque, Xavi, Iniesta e Puyol merece ser lembrada para sempre.',
+        subtitle: 'La Furia Roja. Tiki-taka in cotton.',
+        description: 'Three consecutive Euros. One World Cup. The Spain that reinvented football with Del Bosque, Xavi, Iniesta and Puyol deserves to be remembered forever.',
         bullets: [
-          'Vermelho La Roja com detalhes dourados',
-          'Algodão 100% orgânico de origem rastreável',
-          'Peça de arquivo — 500 unidades numeradas',
+          'La Roja red with golden details',
+          '100% traceable organic cotton',
+          'Archive piece — 500 numbered units',
         ],
-        cta: 'Comprar Agora',
+        cta: 'Buy Now',
       },
       variants: [
         { id: 'es-vermelho', name: 'Vermelho', hex: '#AA151B', imageUrl: '', shopifyVariantId: '', inStock: true },
@@ -266,9 +302,9 @@ const STORAGE_KEY = 'rm_config_v3';
 export function useConfig() {
   const [config, setConfigState] = useState(() => {
     try {
-      // apaga versões antigas de localStorage automaticamente
-      localStorage.removeItem(STORAGE_KEY);
+      // apaga versões ANTIGAS de localStorage (não a atual!)
       localStorage.removeItem('rm_config_v1');
+      localStorage.removeItem('rm_config_v2');
 
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {

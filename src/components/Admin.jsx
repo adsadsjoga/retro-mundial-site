@@ -4,7 +4,7 @@ import {
   Zap, Globe, Plus, Trash2, ToggleLeft, ToggleRight, RefreshCw,
   Wand2, ChevronDown, ChevronUp, AlertCircle, ExternalLink, Users, Search,
   Mail, Send, Bot, Eye, BarChart2, TrendingUp, TrendingDown,
-  ArrowUp, ArrowDown, GripVertical,
+  ArrowUp, ArrowDown, GripVertical, Layout, Film,
 } from 'lucide-react';
 import { ImageUpload, generateCopy } from './shared';
 import { DEFAULT_CONFIG } from '../config';
@@ -51,7 +51,7 @@ export default function AdminPanel({ config, setConfig, resetConfig, onClose }) 
 
   const tabs = [
     { id: 'products',     icon: Package, label: 'Produtos' },
-    { id: 'banner',       icon: Image,   label: 'Banner' },
+    { id: 'site',         icon: Layout,  label: 'Aparência' },
     { id: 'discounts',    icon: Percent, label: 'Descontos' },
     { id: 'customers',    icon: Users,   label: 'Clientes' },
     { id: 'analytics',    icon: BarChart2, label: 'Analytics' },
@@ -120,7 +120,7 @@ export default function AdminPanel({ config, setConfig, resetConfig, onClose }) 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-8">
           {tab === 'products'     && <ProductsTab     config={config} setConfig={setConfig} />}
-          {tab === 'banner'       && <BannerTab        config={config} setConfig={setConfig} />}
+          {tab === 'site'         && <SiteTab          config={config} setConfig={setConfig} />}
           {tab === 'discounts'    && <DiscountsTab     config={config} setConfig={setConfig} />}
           {tab === 'customers'    && <CustomersTab     onClose={onClose} />}
           {tab === 'analytics'    && <AnalyticsTab />}
@@ -485,6 +485,230 @@ function BannerTab({ config, setConfig }) {
           <input key={i} value={b.text} onChange={e => updBadge(i, e.target.value)} className={iCls + ' mb-2'} />
         ))}
       </div>
+    </div>
+  );
+}
+
+// ─── APARÊNCIA DO SITE ──────────────────────────────────────────────────────
+// Edita as secções da landing page: países, bloco "500", "nossa história".
+
+const COUNTRY_NAMES = {
+  Brazil: 'Brasil', Argentina: 'Argentina', Germany: 'Alemanha',
+  England: 'Inglaterra', France: 'França', Spain: 'Espanha',
+};
+const COUNTRY_FLAGS = {
+  Brazil: '🇧🇷', Argentina: '🇦🇷', Germany: '🇩🇪',
+  England: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', France: '🇫🇷', Spain: '🇪🇸',
+};
+
+function SiteTab({ config, setConfig }) {
+  // garante que homepage existe (configs antigos)
+  const hp = config.homepage || DEFAULT_CONFIG.homepage;
+  const editorial = hp.editorial || DEFAULT_CONFIG.homepage.editorial;
+  const story = hp.story || DEFAULT_CONFIG.homepage.story;
+  const countries = hp.countries || DEFAULT_CONFIG.homepage.countries;
+
+  function setHP(updater) {
+    setConfig(p => {
+      const base = p.homepage || DEFAULT_CONFIG.homepage;
+      return { ...p, homepage: updater(base) };
+    });
+  }
+  function setCountryImg(key, url) {
+    setHP(h => ({ ...h, countries: (h.countries || countries).map(c => c.key === key ? { ...c, image: url } : c) }));
+  }
+  function setEditorial(field, val) {
+    setHP(h => ({ ...h, editorial: { ...(h.editorial || editorial), [field]: val } }));
+  }
+  function setStory(field, val) {
+    setHP(h => ({ ...h, story: { ...(h.story || story), [field]: val } }));
+  }
+  function setStoryImg(i, url) {
+    setHP(h => {
+      const imgs = [...((h.story || story).images || ['', '', '', ''])];
+      imgs[i] = url;
+      return { ...h, story: { ...(h.story || story), images: imgs } };
+    });
+  }
+  function setStoryLink(i, url) {
+    setHP(h => {
+      const links = [...((h.story || story).imageLinks || ['', '', '', ''])];
+      links[i] = url;
+      return { ...h, story: { ...(h.story || story), imageLinks: links } };
+    });
+  }
+
+  const targetHint = 'Use: home, shop, about — ou uma URL completa (https://...)';
+
+  function updHero(field, val) {
+    setConfig(p => ({ ...p, hero: { ...p.hero, [field]: val } }));
+  }
+  function updBadge(i, val) {
+    setConfig(p => { const b = [...p.trustBadges]; b[i] = { text: val }; return { ...p, trustBadges: b }; });
+  }
+
+  return (
+    <div className="max-w-3xl space-y-10">
+      <div>
+        <h3 className="text-xl font-black mb-2">Aparência do Site</h3>
+        <p className="text-gray-400 text-sm">Troca imagens, textos e links das secções da página inicial. Altera aqui → atualiza o site.</p>
+      </div>
+
+      {/* ── BANNER HERO ── */}
+      <section className="border border-gray-800 rounded-sm overflow-hidden">
+        <div className="bg-gray-900 px-4 py-3 border-b border-gray-800">
+          <h4 className="font-black text-sm uppercase tracking-wide text-amber-400">Banner Hero</h4>
+          <p className="text-gray-500 text-xs mt-0.5">Imagem de fundo, título, subtítulo e botões do ecrã principal.</p>
+        </div>
+        <div className="p-4 space-y-4">
+          <ImageUpload label="Imagem de Fundo do Hero" value={config.hero.backgroundImage}
+            onChange={v => updHero('backgroundImage', v)} config={config} />
+          <p className="text-gray-600 text-xs -mt-2">Resolução ideal: 1920×1080px ou maior. Deixe vazio para fundo preto.</p>
+          <Field label="Título principal">
+            <input value={config.hero.title} onChange={e => updHero('title', e.target.value)} className={iCls} />
+            <p className="text-gray-600 text-xs mt-1">A 2ª palavra fica em âmbar. "MOMENTS THAT MATTER" → THAT fica amarelo.</p>
+          </Field>
+          <Field label="Subtítulo">
+            <textarea value={config.hero.subtitle} onChange={e => updHero('subtitle', e.target.value)} className={iCls} rows={3} />
+          </Field>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <Field label="Botão principal">
+              <input value={config.hero.ctaPrimary} onChange={e => updHero('ctaPrimary', e.target.value)} className={iCls} />
+            </Field>
+            <Field label="Botão secundário">
+              <input value={config.hero.ctaSecondary} onChange={e => updHero('ctaSecondary', e.target.value)} className={iCls} />
+            </Field>
+          </div>
+          <div>
+            <label className={lCls}>Badges de confiança (barra âmbar)</label>
+            {config.trustBadges.map((b, i) => (
+              <input key={i} value={b.text} onChange={e => updBadge(i, e.target.value)} className={iCls + ' mb-2'} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── ESCOLHE O TEU PAÍS ── */}
+      <section className="border border-gray-800 rounded-sm overflow-hidden">
+        <div className="bg-gray-900 px-4 py-3 border-b border-gray-800">
+          <h4 className="font-black text-sm uppercase tracking-wide text-amber-400">Secção "Escolhe o teu país"</h4>
+          <p className="text-gray-500 text-xs mt-0.5">Uma imagem por país (3:4, vertical). Sem imagem = mostra a bandeira.</p>
+        </div>
+        <div className="p-4 grid sm:grid-cols-2 gap-4">
+          {countries.map(c => (
+            <div key={c.key} className="bg-gray-900/60 p-3 rounded-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">{COUNTRY_FLAGS[c.key]}</span>
+                <span className="font-bold text-sm">{COUNTRY_NAMES[c.key] || c.key}</span>
+              </div>
+              <ImageUpload value={c.image} onChange={url => setCountryImg(c.key, url)} config={config} />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── BLOCO "500" ── */}
+      <section className="border border-gray-800 rounded-sm overflow-hidden">
+        <div className="bg-gray-900 px-4 py-3 border-b border-gray-800">
+          <h4 className="font-black text-sm uppercase tracking-wide text-amber-400">Bloco de Destaque "500"</h4>
+          <p className="text-gray-500 text-xs mt-0.5">Pode ter imagem ou vídeo de fundo. Sem mídia = fundo branco.</p>
+        </div>
+        <div className="p-4 space-y-4">
+          <Field label="Tipo de fundo">
+            <div className="flex gap-2">
+              {[['none', 'Branco (sem mídia)'], ['image', 'Imagem'], ['video', 'Vídeo']].map(([val, lbl]) => (
+                <button key={val} onClick={() => setEditorial('mediaType', val)}
+                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-sm border transition-colors ${
+                    editorial.mediaType === val ? 'bg-amber-500 text-black border-amber-500' : 'border-gray-700 text-gray-400 hover:border-gray-500'}`}>
+                  {val === 'video' && <Film size={12} />}{val === 'image' && <Image size={12} />}{lbl}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          {editorial.mediaType === 'video' ? (
+            <Field label="URL do vídeo (.mp4 ou .webm)">
+              <input value={editorial.mediaUrl || ''} onChange={e => setEditorial('mediaUrl', e.target.value)}
+                className={iCls} placeholder="https://.../video.mp4" />
+              <p className="text-gray-600 text-xs mt-1">Sobe o vídeo no Cloudinary ou usa um link directo .mp4. Toca em loop, sem som.</p>
+            </Field>
+          ) : editorial.mediaType === 'image' ? (
+            <ImageUpload label="Imagem de fundo" value={editorial.mediaUrl} onChange={url => setEditorial('mediaUrl', url)} config={config} />
+          ) : null}
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="Eyebrow (texto pequeno em cima)">
+              <input value={editorial.eyebrow || ''} onChange={e => setEditorial('eyebrow', e.target.value)} className={iCls} />
+            </Field>
+            <div />
+            <Field label="Título — linha 1">
+              <input value={editorial.titleLine1 || ''} onChange={e => setEditorial('titleLine1', e.target.value)} className={iCls} />
+            </Field>
+            <Field label="Título — linha 2">
+              <input value={editorial.titleLine2 || ''} onChange={e => setEditorial('titleLine2', e.target.value)} className={iCls} />
+            </Field>
+          </div>
+          <Field label="Texto">
+            <textarea value={editorial.text || ''} onChange={e => setEditorial('text', e.target.value)} className={iCls} rows={3} />
+          </Field>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="Texto do botão">
+              <input value={editorial.ctaLabel || ''} onChange={e => setEditorial('ctaLabel', e.target.value)} className={iCls} />
+            </Field>
+            <Field label="Destino do botão">
+              <input value={editorial.ctaTarget || ''} onChange={e => setEditorial('ctaTarget', e.target.value)} className={iCls} placeholder="shop" />
+              <p className="text-gray-600 text-xs mt-1">{targetHint}</p>
+            </Field>
+          </div>
+        </div>
+      </section>
+
+      {/* ── NOSSA HISTÓRIA ── */}
+      <section className="border border-gray-800 rounded-sm overflow-hidden">
+        <div className="bg-gray-900 px-4 py-3 border-b border-gray-800">
+          <h4 className="font-black text-sm uppercase tracking-wide text-amber-400">Secção "A nossa história"</h4>
+          <p className="text-gray-500 text-xs mt-0.5">Colagem de 4 imagens + textos. Cada imagem pode ter o seu link.</p>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="grid sm:grid-cols-2 gap-4">
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="bg-gray-900/60 p-3 rounded-sm">
+                <p className="text-xs font-bold text-gray-400 mb-2">Imagem {i + 1}</p>
+                <ImageUpload value={story.images?.[i]} onChange={url => setStoryImg(i, url)} config={config} />
+                <div className="mt-2">
+                  <Field label="Link ao clicar (opcional)">
+                    <input value={story.imageLinks?.[i] || ''} onChange={e => setStoryLink(i, e.target.value)}
+                      className={iCls} placeholder="vazio = produto correspondente" />
+                  </Field>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-gray-600 text-xs">Imagem vazia usa a foto do produto correspondente. Link vazio abre esse produto.</p>
+
+          <Field label="Eyebrow">
+            <input value={story.eyebrow || ''} onChange={e => setStory('eyebrow', e.target.value)} className={iCls} />
+          </Field>
+          <Field label="Título (use Enter para quebrar linha)">
+            <textarea value={story.title || ''} onChange={e => setStory('title', e.target.value)} className={iCls} rows={3} />
+          </Field>
+          <Field label="Parágrafo 1">
+            <textarea value={story.text1 || ''} onChange={e => setStory('text1', e.target.value)} className={iCls} rows={3} />
+          </Field>
+          <Field label="Parágrafo 2">
+            <textarea value={story.text2 || ''} onChange={e => setStory('text2', e.target.value)} className={iCls} rows={2} />
+          </Field>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="Texto do botão">
+              <input value={story.ctaLabel || ''} onChange={e => setStory('ctaLabel', e.target.value)} className={iCls} />
+            </Field>
+            <Field label="Destino do botão">
+              <input value={story.ctaTarget || ''} onChange={e => setStory('ctaTarget', e.target.value)} className={iCls} placeholder="about" />
+              <p className="text-gray-600 text-xs mt-1">{targetHint}</p>
+            </Field>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

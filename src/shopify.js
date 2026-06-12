@@ -2,6 +2,48 @@
 // Quando token configurado, puxa produtos reais do Shopify.
 // Fallback: usa produtos do config local.
 
+const COLOR_HEX = {
+  // blues / navies
+  'navy': '#1a2744', 'french navy': '#1a2744', 'dark navy': '#0d1b2a',
+  'blue': '#2563eb', 'royal blue': '#2554c7', 'sky blue': '#38bdf8',
+  'light blue': '#7dd3fc', 'navy blue': '#1e3a5f', 'ocean blue': '#006994',
+  // blacks / grays
+  'black': '#111111', 'jet black': '#111111', 'charcoal': '#374151',
+  'dark grey': '#374151', 'dark gray': '#374151', 'grey': '#6b7280',
+  'gray': '#6b7280', 'light grey': '#d1d5db', 'light gray': '#d1d5db',
+  'ash': '#b2bec3', 'slate': '#64748b',
+  // whites
+  'white': '#f5f5f5', 'off white': '#faf9f6', 'cream': '#fffdd0',
+  'ivory': '#fffff0', 'natural': '#f5f0e8',
+  // reds
+  'red': '#dc2626', 'scarlet': '#ff2400', 'crimson': '#dc143c',
+  'burgundy': '#800020', 'wine': '#722f37', 'maroon': '#800000',
+  // greens
+  'green': '#16a34a', 'dark green': '#15803d', 'forest green': '#228b22',
+  'bottle green': '#006a4e', 'olive': '#708238', 'khaki': '#c3b091',
+  // yellows / ambers
+  'yellow': '#eab308', 'gold': '#fbbf24', 'amber': '#f59e0b',
+  'mustard': '#e1a800',
+  // neutrals / stone
+  'stone': '#b5a99a', 'pebble': '#a89880', 'dune': '#c8b89a',
+  'linen': '#e8dcc8', 'ecru': '#c2b280', 'oatmeal': '#d4c5a9',
+  'vintage white': '#f0ebe0', 'vintage black': '#1a1a1a',
+  // browns
+  'brown': '#92400e', 'tan': '#d2b48c', 'camel': '#c19a6b',
+  'chocolate': '#7b3f00', 'sand': '#c2b280', 'taupe': '#8b7d6b',
+  // purples / pinks
+  'purple': '#7c3aed', 'violet': '#8b5cf6', 'lilac': '#c084fc',
+  'pink': '#ec4899', 'rose': '#f43f5e', 'fuchsia': '#d946ef',
+  // oranges
+  'orange': '#ea580c', 'coral': '#ff6b6b', 'terracotta': '#c1440e',
+};
+
+function colorNameToHex(name) {
+  if (!name) return '#888888';
+  const key = name.toLowerCase().trim();
+  return COLOR_HEX[key] || '#888888';
+}
+
 const PRODUCTS_QUERY = `
   query GetProducts($first: Int!) {
     products(first: $first) {
@@ -111,7 +153,7 @@ export async function fetchShopifyProducts(domain, token) {
           return {
             id: v.id,
             name: color,
-            hex: '#888888',  // cor padrão — editável no admin
+            hex: colorNameToHex(color),
             imageUrl: v.image?.url || images[0] || '',
             shopifyVariantId: v.id,
             inStock: v.availableForSale,
@@ -120,8 +162,8 @@ export async function fetchShopifyProducts(domain, token) {
     } else {
       variants = variantsRaw.slice(0, 1).map(v => ({
         id: v.id,
-        name: 'Padrão',
-        hex: '#888888',
+        name: v.title || 'Default',
+        hex: colorNameToHex(v.title),
         imageUrl: images[0] || '',
         shopifyVariantId: v.id,
         inStock: v.availableForSale,
@@ -189,7 +231,7 @@ export function mergeWithLocalConfig(shopifyProducts, localProducts) {
         return {
           ...sv,
           name: localVariant?.name || sv.name,
-          hex: localVariant?.hex || '#888888',
+          hex: localVariant?.hex || colorNameToHex(sv.name),
           imageUrl,
           inStock: sv.inStock ?? localVariant?.inStock ?? true,
         };

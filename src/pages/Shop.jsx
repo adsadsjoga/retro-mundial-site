@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { ProductImage, Badge, PriceDisplay, Stars } from '../components/shared';
 
-const FILTERS = ['Todos', 'Brazil', 'Argentina', 'England', 'France', 'Spain', 'Germany'];
+const FILTERS = ['All', 'Brazil', 'Argentina', 'England', 'France', 'Spain', 'Germany'];
 
 export default function ShopPage({ products, config, onNavigate }) {
-  const [filter, setFilter] = useState('Todos');
+  const [filter, setFilter] = useState('All');
   const active = (products || []).filter(p => p.active);
-  const filtered = filter === 'Todos' ? active : active.filter(p => p.country === filter);
+  const filtered = filter === 'All' ? active : active.filter(p => p.country === filter);
 
   // Scroll reveal
   useEffect(() => {
@@ -23,9 +23,9 @@ export default function ShopPage({ products, config, onNavigate }) {
     <div className="min-h-screen bg-black pt-24 pb-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="py-12 scroll-reveal">
-          <div className="text-amber-500 text-xs font-bold tracking-widest uppercase mb-3">A Coleção Completa</div>
-          <h1 className="text-6xl font-black tracking-tight">TODAS AS PEÇAS</h1>
-          <p className="text-gray-400 mt-2">Edições limitadas · 500 unidades · Devolução grátis</p>
+          <div className="text-amber-500 text-xs font-bold tracking-widest uppercase mb-3">The Full Collection</div>
+          <h1 className="text-6xl font-black tracking-tight">ALL PIECES</h1>
+          <p className="text-gray-400 mt-2">Limited editions · 500 units · Free returns</p>
         </div>
 
         {/* Filtros */}
@@ -48,8 +48,8 @@ export default function ShopPage({ products, config, onNavigate }) {
 
         {filtered.length === 0 && (
           <div className="text-center py-20 text-gray-500">
-            <p className="text-xl font-bold mb-2">Nenhum produto encontrado</p>
-            <button onClick={() => setFilter('Todos')} className="text-amber-500 text-sm hover:underline">Ver todos</button>
+            <p className="text-xl font-bold mb-2">No products found</p>
+            <button onClick={() => setFilter('All')} className="text-amber-500 text-sm hover:underline">View all</button>
           </div>
         )}
       </div>
@@ -81,7 +81,7 @@ function ProductCard({ product, onNavigate }) {
 
         {product.stock <= 11 && (
           <div className="absolute top-3 right-3 bg-black/70 px-2 py-1 rounded-sm">
-            <span className="text-xs text-amber-400 font-bold">Só {product.stock} restantes</span>
+            <span className="text-xs text-amber-400 font-bold">Only {product.stock} left</span>
           </div>
         )}
 
@@ -119,7 +119,7 @@ function ProductCard({ product, onNavigate }) {
         </p>
         <button onClick={() => onNavigate('product', product)}
           className="w-full bg-white hover:bg-amber-500 text-black font-bold py-3 text-xs tracking-widest uppercase transition-all rounded-sm">
-          Ver Produto
+          View Product
         </button>
       </div>
     </div>

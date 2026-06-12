@@ -144,12 +144,12 @@ export function ImageUpload({ value, onChange, config, label }) {
 // Para IA real, configure a Anthropic API key nas Integrações.
 
 const COPY_TEMPLATES = {
-  Brazil:    { headline: 'Brazil World Cup 2026', subtitle: 'Cinco títulos. Uma lenda viva.', bullets: ['100% algodão orgânico GOTS', 'Corte oversized premium', 'Edição limitada 500 un.'], cta: 'Comprar Agora' },
-  Argentina: { headline: 'Argentina Legacy', subtitle: 'Da mão de Deus à geração Messi.', bullets: ['Algodão orgânico premium', 'Gráfico heritage Copa 1986', '500 unidades no mundo'], cta: 'Adicionar à Coleção' },
-  Germany:   { headline: 'Germany Precision', subtitle: 'Quatro Copas. Uma precisão única.', bullets: ['Tecido premium durável', 'Design minimalista alemão', 'Peça de colecionador'], cta: 'Comprar Agora' },
-  England:   { headline: 'England Tradition', subtitle: 'Onde o futebol nasceu.', bullets: ['Corte oversized perfeito', 'Detalhes bordados premium', 'GOTS — produção sustentável'], cta: 'Comprar Agora' },
-  France:    { headline: 'France Elegance', subtitle: 'Les Bleus reimaginados.', bullets: ['Silhueta Parisiense premium', 'Gráfico da geração campeã', '500 unidades limitadas'], cta: 'Comprar Agora' },
-  Spain:     { headline: 'Spain Passion', subtitle: 'La Furia Roja. Tiki-taka em algodão.', bullets: ['Vermelho La Roja exclusivo', 'Algodão 100% orgânico rastreável', 'Peça numerada de arquivo'], cta: 'Comprar Agora' },
+  Brazil:    { headline: 'Brazil World Cup 2026', subtitle: 'Five titles. One living legend.', bullets: ['100% GOTS organic cotton', 'Premium oversized cut', 'Limited edition 500 units'], cta: 'Buy Now' },
+  Argentina: { headline: 'Argentina Legacy', subtitle: 'Hand of God to Messi\'s generation.', bullets: ['Premium organic cotton', 'Heritage graphic — 1986 World Cup', '500 units worldwide'], cta: 'Add to Collection' },
+  Germany:   { headline: 'Germany Precision', subtitle: 'Four World Cups. One unique precision.', bullets: ['Durable premium fabric', 'Minimalist German design', 'Collector\'s piece'], cta: 'Buy Now' },
+  England:   { headline: 'England Tradition', subtitle: 'Where football was born.', bullets: ['Perfect oversized cut', 'Premium embroidered details', 'GOTS — sustainable production'], cta: 'Buy Now' },
+  France:    { headline: 'France Elegance', subtitle: 'Les Bleus reimagined.', bullets: ['Premium Parisian silhouette', 'Champion generation graphic', '500 limited units'], cta: 'Buy Now' },
+  Spain:     { headline: 'Spain Passion', subtitle: 'La Furia Roja. Tiki-taka in cotton.', bullets: ['Exclusive La Roja red', '100% traceable organic cotton', 'Numbered archive piece'], cta: 'Buy Now' },
 };
 
 export async function generateCopy(product, anthropicKey) {

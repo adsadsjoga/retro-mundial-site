@@ -62,7 +62,7 @@ export default function Cart({ items, config, onClose, onUpdate, onRemove }) {
         {subtotal < freeShip ? (
           <div className="px-6 py-3 bg-black/40 text-sm">
             <p className="text-gray-400 mb-1.5">
-              Faltam <span className="text-amber-500 font-bold">€{(freeShip - subtotal).toFixed(2)}</span> para frete grátis
+              <span className="text-amber-500 font-bold">€{(freeShip - subtotal).toFixed(2)}</span> away from free shipping
             </p>
             <div className="h-1 bg-gray-700 rounded-full overflow-hidden">
               <div className="h-full bg-amber-500 transition-all" style={{ width: `${Math.min((subtotal / freeShip) * 100, 100)}%` }} />
@@ -70,7 +70,7 @@ export default function Cart({ items, config, onClose, onUpdate, onRemove }) {
           </div>
         ) : (
           <div className="px-6 py-2 bg-green-900/30 text-green-400 text-sm flex items-center gap-2">
-            <Truck size={14} /> Frete grátis desbloqueado!
+            <Truck size={14} /> Free shipping unlocked!
           </div>
         )}
 
@@ -78,7 +78,7 @@ export default function Cart({ items, config, onClose, onUpdate, onRemove }) {
           {items.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
               <ShoppingCart size={48} className="mb-4 opacity-30" />
-              <p className="font-semibold">Carrinho vazio</p>
+              <p className="font-semibold">Your cart is empty</p>
             </div>
           )}
           {items.map(item => (
@@ -116,18 +116,18 @@ export default function Cart({ items, config, onClose, onUpdate, onRemove }) {
           <div className="border-t border-gray-800 p-6 space-y-4">
             <div className="flex gap-2">
               <input type="text" value={coupon} onChange={e => setCoupon(e.target.value)}
-                placeholder={config.discounts?.[0]?.code || 'Código de cupom'}
+                placeholder={config.discounts?.[0]?.code || 'Coupon code'}
                 className="flex-1 bg-black border border-gray-700 focus:border-amber-500 outline-none px-3 py-2 text-sm rounded-sm text-white placeholder-gray-600" />
-              <button onClick={applyCouponCode} className="bg-gray-700 hover:bg-gray-600 px-4 py-2 text-sm font-bold rounded-sm">Aplicar</button>
+              <button onClick={applyCouponCode} className="bg-gray-700 hover:bg-gray-600 px-4 py-2 text-sm font-bold rounded-sm">Apply</button>
             </div>
             {couponMsg && <p className={`text-xs ${appliedCoupon ? 'text-green-400' : 'text-red-400'}`}>{couponMsg}</p>}
 
             <div className="space-y-2 text-sm">
               <div className="flex justify-between text-gray-400"><span>Subtotal</span><span>€{subtotal.toFixed(2)}</span></div>
-              {discount > 0 && <div className="flex justify-between text-green-400"><span>Desconto</span><span>−€{discount.toFixed(2)}</span></div>}
+              {discount > 0 && <div className="flex justify-between text-green-400"><span>Discount</span><span>−€{discount.toFixed(2)}</span></div>}
               <div className="flex justify-between text-gray-400">
-                <span>Frete</span>
-                <span>{shipping === 0 ? <span className="text-green-400">GRÁTIS</span> : `€${shipping.toFixed(2)}`}</span>
+                <span>Shipping</span>
+                <span>{shipping === 0 ? <span className="text-green-400">FREE</span> : `€${shipping.toFixed(2)}`}</span>
               </div>
               <div className="flex justify-between font-black text-base border-t border-gray-700 pt-2">
                 <span>Total</span><span>€{total.toFixed(2)}</span>
@@ -136,7 +136,7 @@ export default function Cart({ items, config, onClose, onUpdate, onRemove }) {
 
             <button onClick={handleCheckout} disabled={loading}
               className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-black font-black py-4 rounded-sm transition-colors tracking-wider uppercase text-sm flex items-center justify-center gap-2">
-              {loading ? 'Aguarde...' : <><span>Finalizar Compra</span> <ExternalLink size={14} /></>}
+              {loading ? 'Please wait...' : <><span>Checkout</span> <ExternalLink size={14} /></>}
             </button>
             <div className="flex items-center justify-center gap-4 text-gray-500 text-xs">
               <span className="flex items-center gap-1"><Shield size={11} /> Seguro</span>
