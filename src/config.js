@@ -54,9 +54,10 @@ export const DEFAULT_CONFIG = {
       badge: 'Best Seller',
       badgeColor: 'bg-amber-500 text-black',
       price: 36.99,
-      compareAtPrice: 49.99,   // preço riscado (aparece como "de €49,99 por €36,99")
+      compareAtPrice: 49.99,
       stock: 17,
       active: true,
+      sortOrder: 1,
       shopifyProductId: '',    // GID do produto no Shopify (preenchido automaticamente)
       copy: {
         headline: 'Brazil World Cup 2026',
@@ -86,6 +87,7 @@ export const DEFAULT_CONFIG = {
       country: 'Argentina',
       badge: 'Collector Edition',
       badgeColor: 'bg-purple-600 text-white',
+      sortOrder: 2,
       price: 36.99,
       compareAtPrice: 49.99,
       stock: 17,
@@ -114,6 +116,7 @@ export const DEFAULT_CONFIG = {
       handle: 'germany-precision',
       shopifyHandle: 'germany-unisex-organic-oversized-high-neck-t-shirt',
       name: 'Germany Precision',
+      sortOrder: 3,
       country: 'Germany',
       badge: 'Trending Now',
       badgeColor: 'bg-blue-600 text-white',
@@ -145,6 +148,7 @@ export const DEFAULT_CONFIG = {
       id: 4,
       handle: 'england-tradition',
       shopifyHandle: 'england-unisex-organic-oversized-high-neck-t-shirt',
+      sortOrder: 4,
       name: 'England Tradition',
       country: 'England',
       badge: 'Best Seller',
@@ -177,6 +181,7 @@ export const DEFAULT_CONFIG = {
       id: 5,
       handle: 'france-elegance',
       shopifyHandle: 'france-unisex-organic-oversized-high-neck-t-shirt',
+      sortOrder: 5,
       name: 'France Elegance',
       country: 'France',
       badge: 'Fan Favorite',
@@ -209,6 +214,7 @@ export const DEFAULT_CONFIG = {
       handle: 'spain-passion',
       shopifyHandle: 'espanha-unisex-organic-oversized-high-neck-t-shirt',
       name: 'Spain Passion',
+      sortOrder: 6,
       country: 'Spain',
       badge: 'New Drop',
       badgeColor: 'bg-red-600 text-white',
@@ -261,12 +267,21 @@ export function useConfig() {
       const saved = localStorage.getItem('rm_config_v2');
       if (saved) {
         const merged = deepMerge(DEFAULT_CONFIG, JSON.parse(saved));
-        // config antigo no localStorage tem token/domínio vazios — não deixar
-        // valores vazios sobrepor as credenciais novas do DEFAULT_CONFIG
+        // credenciais Shopify — não deixar valores antigos/vazios sobrepor
         if (!merged.integrations.shopifyToken)  merged.integrations.shopifyToken  = DEFAULT_CONFIG.integrations.shopifyToken;
         if (!merged.integrations.shopifyDomain || merged.integrations.shopifyDomain === 'shop.retromundial.com') {
           merged.integrations.shopifyDomain = DEFAULT_CONFIG.integrations.shopifyDomain;
         }
+        // migração: garante shopifyHandle e sortOrder em produtos existentes
+        // (localStorage antigo pode não ter esses campos → quebraria o merge)
+        merged.products = merged.products.map((p, i) => {
+          const def = DEFAULT_CONFIG.products.find(d => d.id === p.id || d.handle === p.handle);
+          return {
+            ...p,
+            shopifyHandle: p.shopifyHandle || def?.shopifyHandle || '',
+            sortOrder:     p.sortOrder     ?? (i + 1),
+          };
+        });
         return merged;
       }
     } catch {}
