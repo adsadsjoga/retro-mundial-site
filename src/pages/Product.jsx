@@ -69,22 +69,22 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
     .slice(0, 3);
 
   return (
-    <div className="min-h-screen bg-black pt-20 pb-24">
+    <div className="min-h-screen bg-black pt-20 pb-32 md:pb-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs text-gray-500 py-6 flex-wrap">
+        <div className="flex items-center gap-2 text-[10px] sm:text-xs text-gray-500 py-4 sm:py-6 flex-wrap">
           <button onClick={() => onNavigate('home')} className="hover:text-white transition-colors">Home</button>
           <ChevronRight size={12} />
           <button onClick={() => onNavigate('shop')} className="hover:text-white transition-colors">Shop</button>
           <ChevronRight size={12} />
-          <span className="text-gray-300">{product.name}</span>
+          <span className="text-gray-300 truncate">{product.name}</span>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20">
+        <div className="grid md:grid-cols-2 gap-6 md:gap-12 lg:gap-20">
           {/* ── GALERIA ── */}
           <div>
             {/* Imagem principal */}
-            <div className="relative overflow-hidden rounded-sm aspect-square bg-gray-900">
+            <div className="relative overflow-hidden rounded-sm aspect-square bg-gray-900 sticky top-24 md:top-0">
               {currentImage ? (
                 <img src={currentImage} alt={product.name} className="w-full h-full object-cover" />
               ) : (
@@ -154,14 +154,14 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
             <div className="flex items-center gap-3 mb-6">
               <Stars rating={4.9} />
               <span className="text-sm font-bold">4.9</span>
-              <span className="text-gray-400 text-sm">(Reviews verificados)</span>
+              <span className="text-gray-400 text-sm">(Verified Reviews)</span>
             </div>
 
             <div className="mb-6">
               <PriceDisplay price={product.price} compareAtPrice={product.compareAtPrice} size="lg" />
               {product.compareAtPrice && product.compareAtPrice > product.price && (
                 <p className="text-green-400 text-xs mt-1 font-bold">
-                  Você economiza €{(product.compareAtPrice - product.price).toFixed(2)}
+                  Save €{(product.compareAtPrice - product.price).toFixed(2)}
                 </p>
               )}
             </div>
@@ -240,9 +240,9 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
                     <thead>
                       <tr className="text-gray-400 border-b border-gray-700">
                         <th className="py-2 text-left font-bold">Size</th>
-                        <th className="py-2 font-bold">Peito</th>
-                        <th className="py-2 font-bold">Comprimento</th>
-                        <th className="py-2 font-bold">Ombro</th>
+                        <th className="py-2 font-bold">Chest</th>
+                        <th className="py-2 font-bold">Length</th>
+                        <th className="py-2 font-bold">Shoulder</th>
                       </tr>
                     </thead>
                     <tbody className="text-gray-300">
@@ -298,7 +298,7 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
 
             {/* Specs */}
             <div className="border-t border-gray-800 pt-5">
-              <h3 className="font-black text-xs uppercase tracking-widest mb-4">Especificações</h3>
+              <h3 className="font-black text-xs uppercase tracking-widest mb-4">Specifications</h3>
               <div className="space-y-2">
                 {[['Material','100% Organic Cotton GOTS'],['Cut','Oversized — size down for a regular fit'],['Edition','Limited · 500 numbered units'],['Print','Heritage, premium screen print'],['Care','Cold wash, dry in shade']].map(([k,v]) => (
                   <div key={k} className="flex gap-4 text-sm">
@@ -311,10 +311,28 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
           </div>
         </div>
 
-        {/* Produtos relacionados */}
+        {/* Frequently asked questions */}
+        <div className="border-t border-gray-800 mt-20 pt-14">
+          <h2 className="text-2xl sm:text-3xl font-black mb-8">Frequently Asked</h2>
+          <div className="grid md:grid-cols-2 gap-8 max-w-3xl">
+            {[
+              { q: 'Is this shirt true to size?', a: 'Our shirts are oversized. If you prefer a regular fit, we recommend sizing down one size.' },
+              { q: 'How should I care for my shirt?', a: 'Wash in cold water with similar colors. Dry in the shade. Avoid bleach and high heat to preserve the print.' },
+              { q: 'What about international shipping?', a: 'We ship to all European countries. Orders over €50 qualify for free shipping.' },
+              { q: 'What is your return policy?', a: 'Full returns within 30 days. No questions asked. We cover return shipping costs.' },
+            ].map(({ q, a }, i) => (
+              <div key={i} className="pb-6 border-b border-gray-800">
+                <h3 className="font-bold mb-2 text-sm">{q}</h3>
+                <p className="text-gray-400 text-sm">{a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* You might also like */}
         {relatedProducts.length > 0 && (
-          <div className="mt-24">
-            <h2 className="text-3xl font-black mb-8">VOCÊ TAMBÉM PODE GOSTAR</h2>
+          <div className="mt-20">
+            <h2 className="text-2xl sm:text-3xl font-black mb-8">You Might Also Like</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {relatedProducts.map(p => (
                 <RelatedCard key={p.id} product={p} onNavigate={onNavigate} />
