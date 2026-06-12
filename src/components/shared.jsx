@@ -90,10 +90,18 @@ export function ImageUpload({ value, onChange, config, label }) {
         sources: ['local', 'url', 'camera'],
         multiple: false,
         cropping: false,
-        maxFileSize: 5000000,
-        clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp'],
+        resourceType: 'auto', // aceita imagem E vídeo
+        maxFileSize: 100000000, // 100 MB (vídeos)
+        clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm', 'mov'],
       }, (error, result) => {
-        if (!error && result?.event === 'success') {
+        if (error) {
+          // mostra o erro real do Cloudinary em vez de falhar em silêncio
+          const msg = error?.statusText || error?.message || JSON.stringify(error);
+          console.error('Cloudinary upload error:', error);
+          alert(`Erro no upload do Cloudinary:\n${msg}\n\nSe disser "Upload preset must be whitelisted for unsigned uploads", o preset "${uploadPreset}" precisa ser mudado para "Unsigned" no painel do Cloudinary (Settings → Upload → Upload presets).`);
+          return;
+        }
+        if (result?.event === 'success') {
           onChange(result.info.secure_url);
         }
       });
@@ -104,6 +112,7 @@ export function ImageUpload({ value, onChange, config, label }) {
       const script = document.createElement('script');
       script.src = 'https://upload-widget.cloudinary.com/global/all.js';
       script.onload = launch;
+      script.onerror = () => alert('Não foi possível carregar o widget do Cloudinary. Verifique a conexão.');
       document.head.appendChild(script);
     } else {
       launch();
@@ -133,7 +142,11 @@ export function ImageUpload({ value, onChange, config, label }) {
         </p>
       )}
       {value && (
-        <img src={value} alt="preview" className="mt-2 w-16 h-16 object-cover rounded-sm border border-gray-700" />
+        /\.(mp4|webm|mov)(\?|$)/i.test(value) ? (
+          <video src={value} className="mt-2 w-16 h-16 object-cover rounded-sm border border-gray-700" muted />
+        ) : (
+          <img src={value} alt="preview" className="mt-2 w-16 h-16 object-cover rounded-sm border border-gray-700" />
+        )
       )}
     </div>
   );
