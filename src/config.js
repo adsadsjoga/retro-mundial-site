@@ -267,8 +267,13 @@ export function useConfig() {
       const saved = localStorage.getItem('rm_config_v2');
       if (saved) {
         const merged = deepMerge(DEFAULT_CONFIG, JSON.parse(saved));
-        // credenciais Shopify — não deixar valores antigos/vazios sobrepor
-        if (!merged.integrations.shopifyToken)  merged.integrations.shopifyToken  = DEFAULT_CONFIG.integrations.shopifyToken;
+        // credenciais Shopify — tokens Admin (shpss_/shpat_) não funcionam
+        // na Storefront API; substituir pelo token público correto
+        const badToken = !merged.integrations.shopifyToken
+          || merged.integrations.shopifyToken.startsWith('shpss_')
+          || merged.integrations.shopifyToken.startsWith('shpat_')
+          || merged.integrations.shopifyToken.startsWith('atkn_');
+        if (badToken) merged.integrations.shopifyToken = DEFAULT_CONFIG.integrations.shopifyToken;
         if (!merged.integrations.shopifyDomain || merged.integrations.shopifyDomain === 'shop.retromundial.com') {
           merged.integrations.shopifyDomain = DEFAULT_CONFIG.integrations.shopifyDomain;
         }
