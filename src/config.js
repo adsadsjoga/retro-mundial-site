@@ -27,7 +27,7 @@ export const DEFAULT_CONFIG = {
   hero: {
     title: 'MOMENTS THAT MATTER',
     subtitle: 'Premium oversized football apparel celebrating World Cup heritage. Limited to 500 units per design.',
-    backgroundImage: '',
+    backgroundImage: 'https://res.cloudinary.com/dsyupplhx/image/upload/v1781183198/slide_6_oztt5m.png',
     ctaPrimary: 'SHOP COLLECTION',
     ctaSecondary: 'VIEW STORY',
   },
