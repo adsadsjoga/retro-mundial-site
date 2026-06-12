@@ -41,6 +41,19 @@ export default function App() {
   // Meta Pixel
   useMetaPixel(config.integrations?.pixelId);
 
+  // Sincroniza config entre abas quando mudam em localStorage
+  useEffect(() => {
+    function handleStorageChange(e) {
+      if (e.key === 'rm_config_v3' && e.newValue) {
+        try {
+          setConfig(JSON.parse(e.newValue));
+        } catch {}
+      }
+    }
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [setConfig]);
+
   // Busca Shopify quando token/domain mudam; cacheia para re-merge sem nova chamada
   useEffect(() => {
     const { shopifyDomain, shopifyToken } = config.integrations || {};
