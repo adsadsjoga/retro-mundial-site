@@ -261,14 +261,19 @@ function deepMerge(target, source) {
   return out;
 }
 
+const STORAGE_KEY = 'rm_config_v3';
+
 export function useConfig() {
   const [config, setConfigState] = useState(() => {
     try {
-      const saved = localStorage.getItem('rm_config_v2');
+      // apaga versões antigas de localStorage automaticamente
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('rm_config_v1');
+
+      const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const merged = deepMerge(DEFAULT_CONFIG, JSON.parse(saved));
-        // credenciais Shopify — tokens Admin (shpss_/shpat_) não funcionam
-        // na Storefront API; substituir pelo token público correto
+        // tokens Admin não funcionam na Storefront API
         const badToken = !merged.integrations.shopifyToken
           || merged.integrations.shopifyToken.startsWith('shpss_')
           || merged.integrations.shopifyToken.startsWith('shpat_')
@@ -277,8 +282,11 @@ export function useConfig() {
         if (!merged.integrations.shopifyDomain || merged.integrations.shopifyDomain === 'shop.retromundial.com') {
           merged.integrations.shopifyDomain = DEFAULT_CONFIG.integrations.shopifyDomain;
         }
-        // migração: garante shopifyHandle e sortOrder em produtos existentes
-        // (localStorage antigo pode não ter esses campos → quebraria o merge)
+        // hero image — nunca deixar em branco se DEFAULT tem imagem
+        if (!merged.hero.backgroundImage) {
+          merged.hero.backgroundImage = DEFAULT_CONFIG.hero.backgroundImage;
+        }
+        // migração: garante shopifyHandle e sortOrder
         merged.products = merged.products.map((p, i) => {
           const def = DEFAULT_CONFIG.products.find(d => d.id === p.id || d.handle === p.handle);
           return {
@@ -296,13 +304,13 @@ export function useConfig() {
   const setConfig = useCallback((updater) => {
     setConfigState(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      try { localStorage.setItem('rm_config_v2', JSON.stringify(next)); } catch {}
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
       return next;
     });
   }, []);
 
   const resetConfig = useCallback(() => {
-    localStorage.removeItem('rm_config_v2');
+    localStorage.removeItem(STORAGE_KEY);
     setConfigState(DEFAULT_CONFIG);
   }, []);
 
