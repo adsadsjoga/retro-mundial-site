@@ -30,10 +30,9 @@ export async function loadRemoteConfig() {
   }
 }
 
-// Grava a config compartilhada. Remove segredos antes de enviar, pois a
-// linha é de leitura pública.
+// Grava a config compartilhada. Retorna { ok, error } para feedback visual.
 export async function saveRemoteConfig(config) {
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: 'Supabase não configurado' };
   try {
     const { adminPassword, ...rest } = config;
     const safe = {
@@ -43,8 +42,13 @@ export async function saveRemoteConfig(config) {
     const { error } = await supabase
       .from('site_config')
       .upsert({ id: CONFIG_ID, data: safe, updated_at: new Date().toISOString() });
-    if (error) console.error('[config] erro ao salvar no Supabase:', error.message);
+    if (error) {
+      console.error('[config] erro ao salvar no Supabase:', error.message);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
   } catch (e) {
     console.error('[config] falha ao salvar no Supabase:', e);
+    return { ok: false, error: e.message };
   }
 }

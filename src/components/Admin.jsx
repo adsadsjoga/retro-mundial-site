@@ -32,21 +32,26 @@ function Toggle({ value, onChange, label }) {
 
 // ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
 
-export default function AdminPanel({ config, setConfig, resetConfig, onClose }) {
+export default function AdminPanel({ config, setConfig, resetConfig, onClose, products: mergedProducts }) {
   const [authed, setAuthed] = useState(false);
   const [pw, setPw] = useState('');
   const [pwErr, setPwErr] = useState('');
   const [tab, setTab] = useState('products');
   const [saved, setSaved] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('idle'); // 'idle' | 'saving' | 'ok' | 'error'
 
   function login() {
     if (pw === config.adminPassword) setAuthed(true);
     else setPwErr('Senha incorreta.');
   }
 
-  function save() {
+  async function save() {
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSyncStatus('saving');
+    const { saveRemoteConfig } = await import('../supabaseConfig');
+    const result = await saveRemoteConfig(config);
+    setSyncStatus(result.ok ? 'ok' : 'error');
+    setTimeout(() => { setSaved(false); setSyncStatus('idle'); }, 3000);
   }
 
   const tabs = [
@@ -55,6 +60,7 @@ export default function AdminPanel({ config, setConfig, resetConfig, onClose }) 
     { id: 'discounts',    icon: Percent, label: 'Descontos' },
     { id: 'customers',    icon: Users,   label: 'Clientes' },
     { id: 'analytics',    icon: BarChart2, label: 'Analytics' },
+    { id: 'funnel',       icon: TrendingDown, label: 'Funil' },
     { id: 'klaviyo',      icon: Mail,    label: 'Klaviyo' },
     { id: 'integrations', icon: Zap,     label: 'Integrações' },
     { id: 'general',      icon: Settings,label: 'Geral' },
@@ -91,8 +97,16 @@ export default function AdminPanel({ config, setConfig, resetConfig, onClose }) 
         </div>
         <div className="flex items-center gap-3">
           <button onClick={save}
-            className={`flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-bold transition-colors ${saved ? 'bg-green-600 text-white' : 'bg-amber-500 hover:bg-amber-400 text-black'}`}>
-            {saved ? <><Check size={14} /> Salvo!</> : <><Save size={14} /> Salvar</>}
+            className={`flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-bold transition-colors ${
+              syncStatus === 'ok' ? 'bg-green-600 text-white' :
+              syncStatus === 'error' ? 'bg-red-600 text-white' :
+              syncStatus === 'saving' ? 'bg-gray-600 text-white' :
+              'bg-amber-500 hover:bg-amber-400 text-black'
+            }`}>
+            {syncStatus === 'ok'     ? <><Check size={14} /> Salvo na cloud!</> :
+             syncStatus === 'error'  ? <><AlertCircle size={14} /> Erro — tenta novamente</> :
+             syncStatus === 'saving' ? <><RefreshCw size={14} className="animate-spin" /> A guardar...</> :
+             <><Save size={14} /> Salvar</>}
           </button>
           <button onClick={onClose} className="text-gray-400 hover:text-white p-2"><X size={20} /></button>
         </div>
@@ -119,11 +133,12 @@ export default function AdminPanel({ config, setConfig, resetConfig, onClose }) 
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-8">
-          {tab === 'products'     && <ProductsTab     config={config} setConfig={setConfig} />}
+          {tab === 'products'     && <ProductsTab     config={config} setConfig={setConfig} mergedProducts={mergedProducts || config.products} />}
           {tab === 'site'         && <SiteTab          config={config} setConfig={setConfig} />}
           {tab === 'discounts'    && <DiscountsTab     config={config} setConfig={setConfig} />}
           {tab === 'customers'    && <CustomersTab     onClose={onClose} />}
           {tab === 'analytics'    && <AnalyticsTab />}
+          {tab === 'funnel'       && <FunnelTab />}
           {tab === 'klaviyo'      && <KlaviyoTab       config={config} />}
           {tab === 'integrations' && <IntegrationsTab  config={config} setConfig={setConfig} />}
           {tab === 'general'      && <GeneralTab       config={config} setConfig={setConfig} />}
@@ -135,63 +150,15 @@ export default function AdminPanel({ config, setConfig, resetConfig, onClose }) 
 
 // ─── PRODUTOS ─────────────────────────────────────────────────────────────────
 
-function ProductsTab({ config, setConfig }) {
+function ProductsTab({ config, setConfig, mergedProducts }) {
   const [openId, setOpenId] = useState(null);
 
   function updateProduct(id, field, value) {
     setConfig(p => ({ ...p, products: p.products.map(pr => pr.id === id ? { ...pr, [field]: value } : pr) }));
   }
 
-  // Move produto para cima/baixo na landing page (troca sortOrder)
-  function moveProduct(id, direction) {
-    setConfig(prev => {
-      const sorted = [...prev.products].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
-      const idx = sorted.findIndex(p => p.id === id);
-      const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-      if (swapIdx < 0 || swapIdx >= sorted.length) return prev;
-      // Troca os sortOrder
-      const aOrder = sorted[idx].sortOrder ?? idx;
-      const bOrder = sorted[swapIdx].sortOrder ?? swapIdx;
-      return {
-        ...prev,
-        products: prev.products.map(p => {
-          if (p.id === sorted[idx].id) return { ...p, sortOrder: bOrder };
-          if (p.id === sorted[swapIdx].id) return { ...p, sortOrder: aOrder };
-          return p;
-        }),
-      };
-    });
-  }
-
   function updateCopy(id, field, value) {
     setConfig(p => ({ ...p, products: p.products.map(pr => pr.id === id ? { ...pr, copy: { ...pr.copy, [field]: value } } : pr) }));
-  }
-
-  function updateVariant(productId, variantId, field, value) {
-    setConfig(p => ({
-      ...p,
-      products: p.products.map(pr => pr.id === productId ? {
-        ...pr,
-        variants: pr.variants.map(v => v.id === variantId ? { ...v, [field]: value } : v)
-      } : pr),
-    }));
-  }
-
-  function addVariant(productId) {
-    const newV = { id: `v${Date.now()}`, name: 'Nova Cor', hex: '#888888', imageUrl: '', shopifyVariantId: '', inStock: true };
-    setConfig(p => ({
-      ...p,
-      products: p.products.map(pr => pr.id === productId ? { ...pr, variants: [...pr.variants, newV] } : pr),
-    }));
-  }
-
-  function removeVariant(productId, variantId) {
-    setConfig(p => ({
-      ...p,
-      products: p.products.map(pr => pr.id === productId ? {
-        ...pr, variants: pr.variants.filter(v => v.id !== variantId)
-      } : pr),
-    }));
   }
 
   async function handleGenerateCopy(product) {
@@ -199,246 +166,167 @@ function ProductsTab({ config, setConfig }) {
     setConfig(p => ({ ...p, products: p.products.map(pr => pr.id === product.id ? { ...pr, copy } : pr) }));
   }
 
-  // Produtos ordenados por sortOrder para exibição
-  const sortedProducts = [...config.products].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
-  const activeOnLanding = sortedProducts.filter(p => p.active);
+  // Usa os produtos merged (com imagens do Shopify) ordenados por sortOrder
+  const sortedProducts = [...mergedProducts].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+
+  // Para editar campos locais, encontra o config local pelo id/handle
+  function findLocalProduct(product) {
+    return config.products.find(p => p.id === product.id || p.shopifyHandle === product.handle || p.handle === product.handle);
+  }
 
   return (
     <div>
       <h3 className="text-xl font-black mb-2">Produtos</h3>
-      <p className="text-gray-400 text-sm mb-6">
-        Configure quais produtos aparecem na landing page e em que ordem. Ative o produto e use ↑↓ para reposicionar.
+      <p className="text-gray-400 text-sm mb-2">
+        Produtos sincronizados com a Shopify. Preços, variantes e stock são geridos direto na Shopify.
       </p>
-
-      {/* ── ORDEM NA LANDING PAGE ── */}
-      <div className="mb-8 border border-amber-500/30 rounded-sm overflow-hidden">
-        <div className="bg-amber-500/10 px-4 py-3 flex items-center justify-between">
-          <div>
-            <h4 className="font-black text-sm text-amber-400 uppercase tracking-wide">Ordem na Landing Page</h4>
-            <p className="text-gray-500 text-xs mt-0.5">{activeOnLanding.length} produto{activeOnLanding.length !== 1 ? 's' : ''} visível{activeOnLanding.length !== 1 ? 'is' : ''} · Ative com o toggle e use ↑↓ para reordenar</p>
-          </div>
-          <span className="text-amber-500 text-xs font-bold">{activeOnLanding.length} / {config.products.length}</span>
-        </div>
-        <div className="divide-y divide-gray-800">
-          {sortedProducts.map((product, i) => {
-            const imgSrc = product.variants?.[0]?.imageUrl || product.images?.[0] || '';
-            const isFirst = i === 0;
-            const isLast = i === sortedProducts.length - 1;
-            return (
-              <div key={product.id} className={`flex items-center gap-3 px-4 py-3 transition-colors ${product.active ? 'bg-gray-900' : 'bg-gray-900/40'}`}>
-                {/* Posição */}
-                <span className={`text-xs font-black w-5 text-center flex-shrink-0 ${product.active ? 'text-amber-500' : 'text-gray-700'}`}>
-                  {product.active ? i + 1 : '—'}
-                </span>
-                {/* Thumbnail */}
-                <div className="w-9 h-9 rounded-sm overflow-hidden flex-shrink-0 bg-gray-800">
-                  {imgSrc
-                    ? <img src={imgSrc} alt="" className="w-full h-full object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center text-sm">⚽</div>
-                  }
-                </div>
-                {/* Nome + handle */}
-                <div className="flex-1 min-w-0">
-                  <p className={`font-bold text-sm truncate ${product.active ? 'text-white' : 'text-gray-500'}`}>{product.name}</p>
-                  <p className="text-gray-600 text-xs truncate">€{product.price?.toFixed?.(2)} · {product.handle}</p>
-                </div>
-                {/* Controles */}
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button onClick={() => moveProduct(product.id, 'up')} disabled={isFirst}
-                    className="w-7 h-7 flex items-center justify-center rounded-sm text-gray-500 hover:text-white hover:bg-gray-700 disabled:opacity-20 disabled:cursor-not-allowed transition-colors">
-                    <ArrowUp size={13} />
-                  </button>
-                  <button onClick={() => moveProduct(product.id, 'down')} disabled={isLast}
-                    className="w-7 h-7 flex items-center justify-center rounded-sm text-gray-500 hover:text-white hover:bg-gray-700 disabled:opacity-20 disabled:cursor-not-allowed transition-colors">
-                    <ArrowDown size={13} />
-                  </button>
-                  <Toggle value={product.active} onChange={v => updateProduct(product.id, 'active', v)}
-                    label={product.active ? 'Na landing' : 'Oculto'} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <h4 className="font-black text-sm uppercase tracking-wide text-gray-400 mb-3">Configurar Produtos</h4>
-      <p className="text-gray-600 text-xs mb-4">
-        <span className="text-amber-500">Preço Riscado</span> = campo "De:" que aparece como ~~€49,99~~ <strong>€36,99</strong> — cria percepção de desconto.
+      <p className="text-gray-500 text-xs mb-6">
+        Para reordenar os produtos no Shop e adicionar a foto de capa do All Drops, vá em <span className="text-amber-500">Aparência → Ordem dos Produtos</span>.
       </p>
 
       <div className="space-y-3">
-        {sortedProducts.map(product => (
-          <div key={product.id} className="bg-gray-900 border border-gray-800 rounded-sm overflow-hidden">
-            {/* Cabeçalho do produto */}
-            <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-800/50 transition-colors"
-              onClick={() => setOpenId(openId === product.id ? null : product.id)}>
-              <div className="flex items-center gap-3">
-                {product.variants?.[0]?.imageUrl ? (
-                  <img src={product.variants[0].imageUrl} className="w-10 h-10 object-cover rounded-sm" alt="" />
-                ) : (
-                  <div className="w-10 h-10 bg-gray-700 rounded-sm flex items-center justify-center text-lg">
-                    {{'Brazil':'🇧🇷','Argentina':'🇦🇷','Germany':'🇩🇪','England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','France':'🇫🇷','Spain':'🇪🇸'}[product.country]}
+        {sortedProducts.map(product => {
+          const localP = findLocalProduct(product);
+          const localId = localP?.id ?? product.id;
+          // thumbnail: foto da primeira variante do Shopify, ou coverImageUrl
+          const thumbSrc = product.variants?.[0]?.imageUrl || product.images?.[0] || '';
+
+          return (
+            <div key={product.id} className="bg-gray-900 border border-gray-800 rounded-sm overflow-hidden">
+              {/* Cabeçalho */}
+              <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-800/50 transition-colors"
+                onClick={() => setOpenId(openId === product.id ? null : product.id)}>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-sm overflow-hidden flex-shrink-0 bg-gray-800">
+                    {thumbSrc
+                      ? <img src={thumbSrc} alt="" className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center text-xl">⚽</div>
+                    }
                   </div>
-                )}
-                <div>
-                  <p className="font-black text-sm">{product.name}</p>
-                  <p className="text-gray-500 text-xs">€{product.price} {product.compareAtPrice ? `· De: €${product.compareAtPrice}` : ''} · {product.variants?.length} {product.variants?.length === 1 ? 'cor' : 'cores'}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Toggle value={product.active} onChange={v => updateProduct(product.id, 'active', v)} />
-                {openId === product.id ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
-              </div>
-            </div>
-
-            {/* Conteúdo expandido */}
-            {openId === product.id && (
-              <div className="p-5 border-t border-gray-800 space-y-6">
-
-                {/* Preços */}
-                <div>
-                  <h4 className="font-black text-sm uppercase tracking-wide mb-3 text-amber-500">Preços</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Preço de Venda (€)">
-                      <input type="number" step="0.01" value={product.price}
-                        onChange={e => updateProduct(product.id, 'price', parseFloat(e.target.value))} className={iCls} />
-                    </Field>
-                    <Field label="Preço Riscado / De: (€) — opcional">
-                      <input type="number" step="0.01" value={product.compareAtPrice || ''}
-                        onChange={e => updateProduct(product.id, 'compareAtPrice', e.target.value ? parseFloat(e.target.value) : null)}
-                        className={iCls} placeholder="Ex: 49.99 (aparece riscado)" />
-                      <p className="text-gray-600 text-xs mt-1">Deixe vazio para não mostrar desconto visual.</p>
-                    </Field>
-                    <Field label="Estoque">
-                      <input type="number" value={product.stock}
-                        onChange={e => updateProduct(product.id, 'stock', parseInt(e.target.value))} className={iCls} />
-                    </Field>
-                    <Field label="Badge">
-                      <input value={product.badge} onChange={e => updateProduct(product.id, 'badge', e.target.value)} className={iCls} />
-                    </Field>
+                  <div>
+                    <p className="font-black text-sm">{product.name}</p>
+                    <p className="text-gray-500 text-xs">
+                      €{product.price?.toFixed?.(2)} · {product.variants?.length || 0} {product.variants?.length === 1 ? 'cor' : 'cores'} · {product.country || '—'}
+                    </p>
                   </div>
                 </div>
+                <div className="flex items-center gap-3">
+                  <Toggle value={product.active} onChange={v => updateProduct(localId, 'active', v)} />
+                  {openId === product.id ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                </div>
+              </div>
 
-                {/* Variantes de cor */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-black text-sm uppercase tracking-wide text-amber-500">Variantes de Cor</h4>
-                    <button onClick={() => addVariant(product.id)}
-                      className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-amber-500 transition-colors">
-                      <Plus size={12} /> Adicionar cor
-                    </button>
-                  </div>
-                  <p className="text-gray-500 text-xs mb-3">Cada cor tem sua foto. Quando o cliente seleciona a cor, a foto muda — e o ID do Shopify garante que o checkout abra com a variante correta.</p>
-                  <div className="space-y-4">
-                    {product.variants?.map(v => (
-                      <div key={v.id} className="bg-gray-800/60 p-4 rounded-sm">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded-full border border-gray-600" style={{ backgroundColor: v.hex }} />
-                            <span className="font-bold text-sm">{v.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Toggle value={v.inStock} onChange={val => updateVariant(product.id, v.id, 'inStock', val)} label={v.inStock ? 'Em estoque' : 'Esgotado'} />
-                            <button onClick={() => removeVariant(product.id, v.id)} className="text-gray-600 hover:text-red-400 transition-colors">
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
+              {/* Conteúdo expandido */}
+              {openId === product.id && (
+                <div className="p-5 border-t border-gray-800 space-y-6">
+
+                  {/* Cores do Shopify (só visualização) */}
+                  <div>
+                    <h4 className="font-black text-sm uppercase tracking-wide mb-2 text-amber-500">Variantes de Cor (Shopify)</h4>
+                    <p className="text-gray-500 text-xs mb-3">Geridas na Shopify. As fotos e IDs são importados automaticamente.</p>
+                    <div className="flex flex-wrap gap-2">
+                      {product.variants?.map(v => (
+                        <div key={v.id} className="flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-sm">
+                          <div className="w-4 h-4 rounded-full border border-gray-600 flex-shrink-0" style={{ backgroundColor: v.hex }} />
+                          <span className="text-xs font-bold">{v.name}</span>
+                          {v.imageUrl && <img src={v.imageUrl} alt="" className="w-6 h-6 object-cover rounded-sm" />}
+                          <span className={`text-xs ${v.inStock ? 'text-green-400' : 'text-red-400'}`}>{v.inStock ? '●' : '○'}</span>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <Field label="Nome da cor">
-                            <input value={v.name} onChange={e => updateVariant(product.id, v.id, 'name', e.target.value)} className={iCls} />
-                          </Field>
-                          <Field label="Cor Hex">
-                            <div className="flex gap-2">
-                              <input type="color" value={v.hex}
-                                onChange={e => updateVariant(product.id, v.id, 'hex', e.target.value)}
-                                className="w-12 h-9 rounded-sm border border-gray-700 bg-gray-900 cursor-pointer" />
-                              <input value={v.hex} onChange={e => updateVariant(product.id, v.id, 'hex', e.target.value)} className={iCls} />
-                            </div>
-                          </Field>
-                          <div className="sm:col-span-2">
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Campos editáveis locais */}
+                  <div>
+                    <h4 className="font-black text-sm uppercase tracking-wide mb-3 text-amber-500">Apresentação</h4>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <Field label="País / Seleção">
+                        <input value={localP?.country || ''} onChange={e => updateProduct(localId, 'country', e.target.value)}
+                          className={iCls} placeholder="Brazil, Argentina, France..." />
+                      </Field>
+                      <Field label="Badge (etiqueta)">
+                        <input value={localP?.badge || ''} onChange={e => updateProduct(localId, 'badge', e.target.value)}
+                          className={iCls} placeholder="Best Seller, New Drop..." />
+                      </Field>
+                    </div>
+                  </div>
+
+                  {/* Galeria — até 4 fotos + 1 vídeo */}
+                  <div>
+                    <h4 className="font-black text-sm uppercase tracking-wide mb-1 text-amber-500">Galeria do Produto (até 4 fotos)</h4>
+                    <p className="text-gray-500 text-xs mb-3">Estas fotos aparecem na página do produto. Máx. 4 imagens.</p>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {[0, 1, 2, 3].map(i => {
+                        const imgs = localP?.images || [];
+                        return (
+                          <div key={i} className="relative">
                             <ImageUpload
-                              label="Foto desta cor (camisa)"
-                              value={v.imageUrl}
-                              onChange={url => updateVariant(product.id, v.id, 'imageUrl', url)}
+                              label={`Foto ${i + 1}${i === 0 ? ' (principal)' : ''}`}
+                              value={imgs[i] || ''}
+                              onChange={url => {
+                                const next = [...(localP?.images || [])];
+                                next[i] = url;
+                                // remove trailing empty slots
+                                while (next.length > 0 && !next[next.length - 1]) next.pop();
+                                if (url) next[i] = url; // ensure slot is set even if above popped it
+                                updateProduct(localId, 'images', next);
+                              }}
                               config={config}
                             />
                           </div>
-                          <div className="sm:col-span-2">
-                            <Field label="Shopify Variant ID (para checkout direto)">
-                              <input value={v.shopifyVariantId} onChange={e => updateVariant(product.id, v.id, 'shopifyVariantId', e.target.value)}
-                                className={iCls} placeholder="gid://shopify/ProductVariant/123456789" />
-                              <p className="text-gray-600 text-xs mt-1">Shopify Admin → Produto → clique na variante → copie o ID da URL.</p>
-                            </Field>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                        );
+                      })}
+                    </div>
 
-                {/* Imagens extras */}
-                <div>
-                  <h4 className="font-black text-sm uppercase tracking-wide mb-3 text-amber-500">Imagens Extras (Galeria)</h4>
-                  {(product.images || []).map((img, i) => (
-                    <div key={i} className="flex gap-2 mb-2">
-                      <ImageUpload value={img} onChange={url => {
-                        const imgs = [...(product.images || [])];
-                        imgs[i] = url;
-                        updateProduct(product.id, 'images', imgs);
-                      }} config={config} />
-                      <button onClick={() => {
-                        const imgs = (product.images || []).filter((_, j) => j !== i);
-                        updateProduct(product.id, 'images', imgs);
-                      }} className="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0 mt-1">
-                        <Trash2 size={16} />
+                    <h4 className="font-black text-sm uppercase tracking-wide mt-5 mb-1 text-amber-500">Vídeo do Produto</h4>
+                    <p className="text-gray-500 text-xs mb-3">Aparece na galeria após as fotos. Formatos: mp4, webm.</p>
+                    <ImageUpload
+                      label="Vídeo (mp4 / webm)"
+                      value={localP?.videoUrl || ''}
+                      onChange={url => updateProduct(localId, 'videoUrl', url)}
+                      config={config}
+                    />
+                  </div>
+
+                  {/* Copywriting */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-black text-sm uppercase tracking-wide text-amber-500">Copywriting</h4>
+                      <button onClick={() => handleGenerateCopy(product)}
+                        className="flex items-center gap-1.5 text-xs bg-gray-700 hover:bg-amber-500 hover:text-black px-3 py-1.5 rounded-sm font-bold transition-colors">
+                        <Wand2 size={12} /> Gerar com IA
                       </button>
                     </div>
-                  ))}
-                  <button onClick={() => updateProduct(product.id, 'images', [...(product.images || []), ''])}
-                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-amber-500 mt-2 transition-colors">
-                    <Plus size={12} /> Adicionar imagem
-                  </button>
-                </div>
-
-                {/* Copywriting */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-black text-sm uppercase tracking-wide text-amber-500">Copywriting</h4>
-                    <button onClick={() => handleGenerateCopy(product)}
-                      className="flex items-center gap-1.5 text-xs bg-gray-700 hover:bg-amber-500 hover:text-black px-3 py-1.5 rounded-sm font-bold transition-colors">
-                      <Wand2 size={12} /> Gerar com IA
-                    </button>
+                    <div className="space-y-3">
+                      <Field label="Headline (título principal)">
+                        <input value={localP?.copy?.headline || ''} onChange={e => updateCopy(localId, 'headline', e.target.value)} className={iCls} />
+                      </Field>
+                      <Field label="Subtítulo">
+                        <input value={localP?.copy?.subtitle || ''} onChange={e => updateCopy(localId, 'subtitle', e.target.value)} className={iCls} />
+                      </Field>
+                      <Field label="Descrição">
+                        <textarea value={localP?.copy?.description || ''} onChange={e => updateCopy(localId, 'description', e.target.value)} className={iCls} rows={4} />
+                      </Field>
+                      <Field label="Bullet 1">
+                        <input value={localP?.copy?.bullets?.[0] || ''} onChange={e => updateCopy(localId, 'bullets', [e.target.value, localP?.copy?.bullets?.[1]||'', localP?.copy?.bullets?.[2]||''])} className={iCls} />
+                      </Field>
+                      <Field label="Bullet 2">
+                        <input value={localP?.copy?.bullets?.[1] || ''} onChange={e => updateCopy(localId, 'bullets', [localP?.copy?.bullets?.[0]||'', e.target.value, localP?.copy?.bullets?.[2]||''])} className={iCls} />
+                      </Field>
+                      <Field label="Bullet 3">
+                        <input value={localP?.copy?.bullets?.[2] || ''} onChange={e => updateCopy(localId, 'bullets', [localP?.copy?.bullets?.[0]||'', localP?.copy?.bullets?.[1]||'', e.target.value])} className={iCls} />
+                      </Field>
+                      <Field label="Texto do Botão de Compra">
+                        <input value={localP?.copy?.cta || ''} onChange={e => updateCopy(localId, 'cta', e.target.value)} className={iCls} placeholder="Buy Now" />
+                      </Field>
+                    </div>
                   </div>
-                  <div className="space-y-3">
-                    <Field label="Headline (título principal)">
-                      <input value={product.copy?.headline || ''} onChange={e => updateCopy(product.id, 'headline', e.target.value)} className={iCls} />
-                    </Field>
-                    <Field label="Subtítulo">
-                      <input value={product.copy?.subtitle || ''} onChange={e => updateCopy(product.id, 'subtitle', e.target.value)} className={iCls} />
-                    </Field>
-                    <Field label="Descrição">
-                      <textarea value={product.copy?.description || ''} onChange={e => updateCopy(product.id, 'description', e.target.value)} className={iCls} rows={4} />
-                    </Field>
-                    <Field label="Bullet 1">
-                      <input value={product.copy?.bullets?.[0] || ''} onChange={e => updateCopy(product.id, 'bullets', [e.target.value, product.copy?.bullets?.[1]||'', product.copy?.bullets?.[2]||''])} className={iCls} />
-                    </Field>
-                    <Field label="Bullet 2">
-                      <input value={product.copy?.bullets?.[1] || ''} onChange={e => updateCopy(product.id, 'bullets', [product.copy?.bullets?.[0]||'', e.target.value, product.copy?.bullets?.[2]||''])} className={iCls} />
-                    </Field>
-                    <Field label="Bullet 3">
-                      <input value={product.copy?.bullets?.[2] || ''} onChange={e => updateCopy(product.id, 'bullets', [product.copy?.bullets?.[0]||'', product.copy?.bullets?.[1]||'', e.target.value])} className={iCls} />
-                    </Field>
-                    <Field label="Texto do Botão de Compra">
-                      <input value={product.copy?.cta || ''} onChange={e => updateCopy(product.id, 'cta', e.target.value)} className={iCls} placeholder="Comprar Agora" />
-                    </Field>
-                  </div>
-                </div>
 
-              </div>
-            )}
-          </div>
-        ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -504,6 +392,31 @@ const COUNTRY_FLAGS = {
 function SiteTab({ config, setConfig }) {
   // garante que homepage existe (configs antigos)
   const hp = config.homepage || DEFAULT_CONFIG.homepage;
+
+  function moveProduct(id, direction) {
+    setConfig(prev => {
+      const sorted = [...prev.products].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+      const idx = sorted.findIndex(p => p.id === id);
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= sorted.length) return prev;
+      const aOrder = sorted[idx].sortOrder ?? idx;
+      const bOrder = sorted[swapIdx].sortOrder ?? swapIdx;
+      return {
+        ...prev,
+        products: prev.products.map(p => {
+          if (p.id === sorted[idx].id) return { ...p, sortOrder: bOrder };
+          if (p.id === sorted[swapIdx].id) return { ...p, sortOrder: aOrder };
+          return p;
+        }),
+      };
+    });
+  }
+
+  function updateProductField(id, field, value) {
+    setConfig(p => ({ ...p, products: p.products.map(pr => pr.id === id ? { ...pr, [field]: value } : pr) }));
+  }
+
+  const sortedProducts = [...config.products].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
   const editorial = hp.editorial || DEFAULT_CONFIG.homepage.editorial;
   const story = hp.story || DEFAULT_CONFIG.homepage.story;
   const countries = hp.countries || DEFAULT_CONFIG.homepage.countries;
@@ -553,6 +466,55 @@ function SiteTab({ config, setConfig }) {
         <h3 className="text-xl font-black mb-2">Aparência do Site</h3>
         <p className="text-gray-400 text-sm">Troca imagens, textos e links das secções da página inicial. Altera aqui → atualiza o site.</p>
       </div>
+
+      {/* ── ORDEM DOS PRODUTOS ── */}
+      <section className="border border-amber-500/30 rounded-sm overflow-hidden">
+        <div className="bg-amber-500/10 px-4 py-3 border-b border-amber-500/20 flex items-center justify-between">
+          <div>
+            <h4 className="font-black text-sm uppercase tracking-wide text-amber-400">Ordem dos Produtos</h4>
+            <p className="text-gray-500 text-xs mt-0.5">Use ↑↓ para reordenar. As fotos do All Drops são as mesmas da página do produto.</p>
+          </div>
+          <span className="text-amber-500 text-xs font-bold">{sortedProducts.filter(p => p.active).length} / {sortedProducts.length}</span>
+        </div>
+        <div className="divide-y divide-gray-800">
+          {sortedProducts.map((product, i) => {
+            const isFirst = i === 0;
+            const isLast = i === sortedProducts.length - 1;
+            const thumbSrc = product.variants?.[0]?.imageUrl || product.images?.[0] || '';
+            return (
+              <div key={product.id} className={`px-4 py-3 transition-colors ${product.active ? 'bg-gray-900' : 'bg-gray-900/40'}`}>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className={`text-xs font-black w-5 text-center flex-shrink-0 ${product.active ? 'text-amber-500' : 'text-gray-700'}`}>
+                    {product.active ? i + 1 : '—'}
+                  </span>
+                  <div className="w-10 h-10 rounded-sm overflow-hidden flex-shrink-0 bg-gray-800">
+                    {thumbSrc
+                      ? <img src={thumbSrc} alt="" className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center text-lg">⚽</div>
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-bold text-sm truncate ${product.active ? 'text-white' : 'text-gray-500'}`}>{product.name}</p>
+                    <p className="text-gray-600 text-xs truncate">{product.country || '—'} · €{product.price?.toFixed?.(2)}</p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => moveProduct(product.id, 'up')} disabled={isFirst}
+                      className="w-7 h-7 flex items-center justify-center rounded-sm text-gray-500 hover:text-white hover:bg-gray-700 disabled:opacity-20 disabled:cursor-not-allowed transition-colors">
+                      <ArrowUp size={13} />
+                    </button>
+                    <button onClick={() => moveProduct(product.id, 'down')} disabled={isLast}
+                      className="w-7 h-7 flex items-center justify-center rounded-sm text-gray-500 hover:text-white hover:bg-gray-700 disabled:opacity-20 disabled:cursor-not-allowed transition-colors">
+                      <ArrowDown size={13} />
+                    </button>
+                    <Toggle value={product.active} onChange={v => updateProductField(product.id, 'active', v)}
+                      label={product.active ? 'Ativo' : 'Oculto'} />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* ── BANNER HERO ── */}
       <section className="border border-gray-800 rounded-sm overflow-hidden">
@@ -884,6 +846,23 @@ function GeneralTab({ config, setConfig }) {
     <div className="max-w-xl space-y-5">
       <h3 className="text-xl font-black mb-2">Configurações Gerais</h3>
 
+      <Field label="Logo do Navbar (imagem)">
+        <ImageUpload
+          value={config.site?.logoUrl || ''}
+          onChange={v => setConfig(p => ({ ...p, site: { ...p.site, logoUrl: v } }))}
+          config={config}
+          label=""
+        />
+        <p className="text-gray-600 text-xs mt-1">Upload ou URL. Altura ideal: 40px. Deixar vazio usa texto "RETRO MUNDIAL".</p>
+      </Field>
+
+      <Field label="Subtítulo do Logo (só aparece quando não há imagem)">
+        <input value={config.site?.logoSubtitle || ''}
+          onChange={e => setConfig(p => ({ ...p, site: { ...p.site, logoSubtitle: e.target.value } }))}
+          placeholder="Moments That Matter"
+          className={iCls} />
+      </Field>
+
       <Field label="Barra de Anúncio (topo da página)">
         <input value={config.site.announcementBar}
           onChange={e => setConfig(p => ({ ...p, site: { ...p.site, announcementBar: e.target.value } }))}
@@ -1181,6 +1160,199 @@ Sê direto, específico e usa números. Máx 120 palavras total.`;
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── FUNNEL TAB ───────────────────────────────────────────────────────────────
+
+const STATUS_STYLES = {
+  ok:       { bar: 'bg-green-500',  text: 'text-green-400',  label: 'OK' },
+  warning:  { bar: 'bg-amber-500',  text: 'text-amber-400',  label: 'Atenção' },
+  critical: { bar: 'bg-red-500',    text: 'text-red-400',    label: 'Crítico' },
+  warming:  { bar: 'bg-blue-500',   text: 'text-blue-400',   label: 'A aquecer' },
+  nodata:   { bar: 'bg-gray-700',   text: 'text-gray-500',   label: 'Sem dados' },
+};
+
+function FunnelTab() {
+  const [days, setDays] = useState(7);
+  const [funnel, setFunnel] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [insights, setInsights] = useState(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsModel, setInsightsModel] = useState(null);
+
+  useEffect(() => { loadFunnel(); }, [days]);
+
+  async function loadFunnel() {
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/funnel?days=${days}`);
+      const data = await r.json();
+      setFunnel(data.success ? data : null);
+    } catch {
+      setFunnel(null);
+    }
+    setLoading(false);
+  }
+
+  async function analyze(deep) {
+    if (!funnel) return;
+    setInsightsLoading(true);
+    setInsights(null);
+    try {
+      const r = await fetch('/api/insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ funnel, deep }),
+      });
+      const data = await r.json();
+      if (data.success) {
+        setInsights(data.insights);
+        setInsightsModel(data.model);
+      } else {
+        setInsights(`Erro: ${data.error}`);
+      }
+    } catch (e) {
+      setInsights(`Erro: ${e.message}`);
+    }
+    setInsightsLoading(false);
+  }
+
+  const stages = funnel?.current || [];
+  const prevByKey = Object.fromEntries((funnel?.previous || []).map(s => [s.key, s]));
+  const maxVal = Math.max(...stages.map(s => s.value), 1);
+
+  return (
+    <div className="max-w-4xl">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <h2 className="text-2xl font-black">FUNIL DE VENDAS</h2>
+          <p className="text-gray-500 text-sm">Impressões → Compra · {funnel?.period ? `${funnel.period.since} a ${funnel.period.until}` : ''}</p>
+        </div>
+        <div className="flex gap-2">
+          {[7, 14, 30].map(d => (
+            <button key={d} onClick={() => setDays(d)}
+              className={`px-3 py-1.5 text-xs font-bold rounded-sm transition-colors ${
+                days === d ? 'bg-amber-500 text-black' : 'bg-gray-800 text-gray-400 hover:text-white'
+              }`}>
+              {d}d
+            </button>
+          ))}
+          <button onClick={loadFunnel} className="px-3 py-1.5 bg-gray-800 text-gray-400 hover:text-white rounded-sm">
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </div>
+
+      {/* Aviso de tracking a aquecer */}
+      {funnel?.data_note && (
+        <div className="mb-4 bg-blue-950/40 border border-blue-800/50 rounded-sm p-3 flex gap-2">
+          <AlertCircle size={16} className="text-blue-400 flex-shrink-0 mt-0.5" />
+          <p className="text-blue-200 text-xs leading-relaxed">
+            <span className="font-bold">Tracking a aquecer ({Math.round((funnel.tracking_coverage || 0) * 100)}% do período):</span>{' '}
+            os estágios de pixel ainda estão subcontados porque o rastreamento ligou há pouco. Não é o pixel quebrado — normaliza nos próximos dias.
+          </p>
+        </div>
+      )}
+
+      {/* KPIs do topo */}
+      {funnel && (
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="bg-gray-900 border border-gray-800 p-4 rounded-sm">
+            <div className="text-xs text-gray-500 uppercase font-bold">Gasto Ads</div>
+            <div className="text-xl font-black mt-1">€{(funnel.spend ?? 0).toFixed(2)}</div>
+          </div>
+          <div className="bg-gray-900 border border-gray-800 p-4 rounded-sm">
+            <div className="text-xs text-gray-500 uppercase font-bold">Receita</div>
+            <div className="text-xl font-black mt-1 text-green-400">€{(funnel.revenue ?? 0).toFixed(2)}</div>
+          </div>
+          <div className="bg-gray-900 border border-gray-800 p-4 rounded-sm">
+            <div className="text-xs text-gray-500 uppercase font-bold">ROAS</div>
+            <div className={`text-xl font-black mt-1 ${funnel.roas >= 2 ? 'text-green-400' : funnel.roas >= 1 ? 'text-amber-400' : 'text-red-400'}`}>
+              {funnel.roas != null ? funnel.roas.toFixed(2) : '—'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Funil */}
+      {loading && !funnel ? (
+        <div className="text-gray-500 py-12 text-center">A carregar funil…</div>
+      ) : stages.length === 0 ? (
+        <div className="text-gray-500 py-12 text-center">Sem dados — verifica META_ACCESS_TOKEN e a tabela funnel_events no Supabase.</div>
+      ) : (
+        <div className="space-y-1.5 mb-8">
+          {stages.map((s, i) => {
+            const st = STATUS_STYLES[s.status] || STATUS_STYLES.nodata;
+            const prev = prevByKey[s.key];
+            const delta = prev && prev.value > 0 ? ((s.value - prev.value) / prev.value) * 100 : null;
+            return (
+              <div key={s.key} className="bg-gray-900 border border-gray-800 rounded-sm p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm">{s.label}</span>
+                    <span className="text-[10px] text-gray-600 uppercase">{s.source}</span>
+                    {i > 0 && (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-black/40 ${st.text}`}>
+                        {s.rate != null ? `${(s.rate * 100).toFixed(1)}%` : '—'}
+                        {s.benchmark != null && ` / meta ${(s.benchmark * 100).toFixed(0)}%`}
+                        {' · '}{st.label}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {delta != null && (
+                      <span className={`text-[10px] font-bold flex items-center gap-0.5 ${delta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {delta >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                        {Math.abs(delta).toFixed(0)}%
+                      </span>
+                    )}
+                    <span className="font-black text-sm">{s.value.toLocaleString()}</span>
+                  </div>
+                </div>
+                <div className="h-2 bg-black/40 rounded-full overflow-hidden">
+                  <div className={`h-full ${st.bar} rounded-full transition-all duration-500`}
+                    style={{ width: `${Math.max((s.value / maxVal) * 100, s.value > 0 ? 2 : 0)}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Análise IA */}
+      <div className="border-t border-gray-800 pt-6">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <Bot size={18} className="text-amber-500" />
+            <h3 className="font-black text-sm uppercase tracking-widest">Análise com IA</h3>
+            {insightsModel && <span className="text-[10px] text-gray-600">({insightsModel})</span>}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => analyze(false)} disabled={insightsLoading || !funnel}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black text-xs font-black uppercase rounded-sm transition-colors">
+              {insightsLoading ? 'A analisar…' : 'Análise rápida'}
+            </button>
+            <button onClick={() => analyze(true)} disabled={insightsLoading || !funnel}
+              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white text-xs font-black uppercase rounded-sm transition-colors border border-gray-700">
+              Análise profunda
+            </button>
+          </div>
+        </div>
+        {insights && (
+          <div className="bg-gray-900 border border-gray-800 rounded-sm p-5 text-sm leading-relaxed">
+            {insights.split('\n').map((line, i) => {
+              if (line.startsWith('## ')) return <h4 key={i} className="font-black text-amber-500 uppercase tracking-wide text-xs mt-4 mb-2 first:mt-0">{line.slice(3)}</h4>;
+              if (line.trim() === '') return <div key={i} className="h-2" />;
+              return <p key={i} className="text-gray-300">{line}</p>;
+            })}
+          </div>
+        )}
+        {!insights && !insightsLoading && (
+          <p className="text-gray-600 text-xs">Clica em "Análise rápida" para o Claude diagnosticar o funil e sugerir ações.</p>
+        )}
       </div>
     </div>
   );

@@ -44,6 +44,38 @@ function colorNameToHex(name) {
   return COLOR_HEX[key] || '#888888';
 }
 
+// Países reconhecidos (rótulo exibido no filtro do Shop)
+const KNOWN_COUNTRIES = {
+  brazil: 'Brazil', brasil: 'Brazil',
+  argentina: 'Argentina',
+  england: 'England', inglaterra: 'England',
+  france: 'France', franca: 'France', frança: 'France',
+  spain: 'Spain', espanha: 'Spain', españa: 'Spain',
+  germany: 'Germany', alemanha: 'Germany', deutschland: 'Germany',
+  italy: 'Italy', italia: 'Italy', itália: 'Italy',
+  portugal: 'Portugal',
+  netherlands: 'Netherlands', holanda: 'Netherlands',
+};
+
+// Detecta o país a partir das collections / tags / título do produto Shopify
+function detectCountry(node) {
+  const candidates = [];
+  (node.collections?.edges || []).forEach(e => {
+    candidates.push(e.node.title, e.node.handle);
+  });
+  if (Array.isArray(node.tags)) candidates.push(...node.tags);
+  candidates.push(node.productType, node.title, node.handle);
+
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const words = String(raw).toLowerCase().split(/[\s\-_/]+/);
+    for (const w of words) {
+      if (KNOWN_COUNTRIES[w]) return KNOWN_COUNTRIES[w];
+    }
+  }
+  return '';
+}
+
 const PRODUCTS_QUERY = `
   query GetProducts($first: Int!) {
     products(first: $first) {
@@ -53,6 +85,11 @@ const PRODUCTS_QUERY = `
           handle
           title
           description
+          productType
+          tags
+          collections(first: 10) {
+            edges { node { title handle } }
+          }
           images(first: 10) {
             edges { node { url altText } }
           }
@@ -137,9 +174,23 @@ export async function fetchShopifyProducts(domain, token) {
     const variantsRaw = node.variants.edges.map(e => e.node);
     const colorOption = variantsRaw[0]?.selectedOptions?.find(o => o.name.toLowerCase() === 'color' || o.name.toLowerCase() === 'cor' || o.name.toLowerCase() === 'colour');
 
+    // Build Color/Size → variantId lookup map
+    const variantsByColorSize = {};
+    const sizeSet = [];
+    variantsRaw.forEach(v => {
+      const color = v.selectedOptions.find(o => ['color','cor','colour'].includes(o.name.toLowerCase()))?.value;
+      const size  = v.selectedOptions.find(o => o.name.toLowerCase() === 'size' || o.name.toLowerCase() === 'tamanho')?.value;
+      if (color && size) {
+        variantsByColorSize[`${color}/${size}`] = v.id;
+        if (!sizeSet.includes(size)) sizeSet.push(size);
+      }
+    });
+    // Shopify returns sizes in variant order (S→2XL) — preserve that order
+    const sizes = sizeSet.length > 0 ? sizeSet : null;
+
     let variants;
     if (colorOption) {
-      // Deduplica por cor
+      // Deduplica por cor — um swatch por cor (shopifyVariantId = primeira variante dessa cor, apenas para referência)
       const seen = new Set();
       variants = variantsRaw
         .filter(v => {
@@ -176,24 +227,28 @@ export async function fetchShopifyProducts(domain, token) {
       name: node.title,
       price,
       compareAtPrice: compareAt > price ? compareAt : null,
-      // quantityAvailable exige scope unauthenticated_read_product_inventory — sem ele,
-      // o stock real fica null e o merge mantém o stock do config local
       stock: null,
       images,
       variants,
+      variantsByColorSize,
+      sizes,
+      country: detectCountry(node),
       _fromShopify: true,
     };
   });
 }
 
-// Cria carrinho e retorna a URL de checkout do Shopify
-export async function checkoutWithVariant(domain, token, variantId, quantity = 1) {
-  const data = await shopifyFetch(domain, token, CREATE_CART_MUTATION, {
-    lines: [{ merchandiseId: variantId, quantity }],
-  });
+// Cria carrinho com um ou mais itens e retorna a URL de checkout
+export async function checkoutCart(domain, token, lines) {
+  const data = await shopifyFetch(domain, token, CREATE_CART_MUTATION, { lines });
   const { cart, userErrors } = data.cartCreate;
   if (userErrors?.length) throw new Error(userErrors[0].message);
   return cart.checkoutUrl;
+}
+
+// Compat — usado em Product.jsx para Buy Now com item único
+export async function checkoutWithVariant(domain, token, variantId, quantity = 1) {
+  return checkoutCart(domain, token, [{ merchandiseId: variantId, quantity }]);
 }
 
 // Merge: Shopify como primária + copy/styling local
@@ -208,8 +263,11 @@ export function mergeWithLocalConfig(shopifyProducts, localProducts) {
   // Inclui TODOS os produtos do Shopify; config local enriquece copy/styling
   return shopifyProducts.map(shopify => {
     const local = localByHandle[shopify.handle];
-    // usa imagem do Shopify; fallback para imagem local se Shopify não tiver nenhuma
-    const images = shopify.images?.length ? shopify.images : (local?.images || []);
+    // Imagens extras do produto = as que o admin carregou no painel (sequência manual)
+    // Filtra URLs do Shopify CDN (dados antigos salvos antes da correção)
+    const images = (local?.images || []).filter(
+      url => url && !url.includes('cdn.shopify.com')
+    );
     return {
       ...shopify,
       id: local?.id ?? shopify.handle,
@@ -219,11 +277,15 @@ export function mergeWithLocalConfig(shopifyProducts, localProducts) {
       sortOrder: local?.sortOrder ?? 999,
       // dados de apresentação locais (copy, badges, etc)
       name: local?.name || shopify.title,
-      country: local?.country || '',
+      // país: admin manual tem prioridade; senão usa o detectado nas collections Shopify
+      country: local?.country || shopify.country || '',
       badge: local?.badge || '',
       badgeColor: local?.badgeColor || '',
       copy: local?.copy || {},
-      sizes: local?.sizes || ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+      coverImageUrl: local?.coverImageUrl || '',
+      videoUrl: local?.videoUrl || '',
+      sizes: shopify.sizes || local?.sizes || ['S', 'M', 'L', 'XL', '2XL'],
+      variantsByColorSize: shopify.variantsByColorSize || {},
       variants: shopify.variants.map(sv => {
         const localVariant = local?.variants?.find(lv => lv.name.toLowerCase() === sv.name.toLowerCase());
         // imagem da variante: Shopify > local > primeira imagem do produto

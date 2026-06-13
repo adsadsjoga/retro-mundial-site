@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, Check } from 'lucide-react';
+import { trackEvent } from '../tracking';
 
 export default function EmailPopup({ config, onClose }) {
   const [email, setEmail] = useState('');
@@ -18,12 +19,10 @@ export default function EmailPopup({ config, onClose }) {
         });
       } catch {}
     }
-    if (window.fbq) {
-      window.fbq('track', 'Lead', {
-        content_name: 'email_popup',
-        content_type: 'newsletter',
-      });
-    }
+    trackEvent('Lead', {
+      content_name: 'email_popup',
+      content_type: 'newsletter',
+    }, email);
     setDone(true);
     setTimeout(onClose, 3200);
   }

@@ -1,13 +1,17 @@
-import { useState } from 'react';
-import { X, Plus, Minus, ShoppingCart, Truck, Shield, RotateCcw, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Plus, Minus, ShoppingCart, Truck, Shield, RotateCcw, ExternalLink, AlertCircle } from 'lucide-react';
 import { ProductImage } from './shared';
-import { checkoutWithVariant } from '../shopify';
+import { checkoutCart } from '../shopify';
+import { trackEvent } from '../tracking';
+
+const SUPPORT_EMAIL = 'adsadsjoga@gmail.com';
 
 export default function Cart({ items, config, onClose, onUpdate, onRemove }) {
   const [coupon, setCoupon] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponMsg, setCouponMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkoutErr, setCheckoutErr] = useState('');
 
   const freeShip = config.site?.freeShippingThreshold || 50;
   const subtotal = items.reduce((s, i) => s + (i.salePrice || i.price) * i.qty, 0);
@@ -17,42 +21,65 @@ export default function Cart({ items, config, onClose, onUpdate, onRemove }) {
 
   function applyCouponCode() {
     const found = config.discounts?.find(d => d.active && d.code.toUpperCase() === coupon.toUpperCase());
-    if (found) { setAppliedCoupon(found); setCouponMsg(`✓ ${found.label} aplicado!`); }
-    else setCouponMsg('Cupom inválido.');
+    if (found) { setAppliedCoupon(found); setCouponMsg(`✓ ${found.label} applied!`); }
+    else setCouponMsg('Invalid coupon.');
   }
 
   async function handleCheckout() {
     const { shopifyDomain, shopifyToken } = config.integrations || {};
-    setLoading(true);
+    setCheckoutErr('');
 
-    // Tenta checkout via Shopify Storefront API
-    if (shopifyDomain && shopifyToken && items[0]?.shopifyVariantId) {
-      try {
-        // Para múltiplos itens, usamos apenas o primeiro variant como exemplo
-        // Em produção, criar um cart com todos os items
-        const url = await checkoutWithVariant(shopifyDomain, shopifyToken, items[0].shopifyVariantId, items[0].qty);
-        window.open(url, '_blank');
-        setLoading(false);
-        return;
-      } catch (e) {
-        console.warn('Shopify checkout error, falling back:', e);
-      }
+    // Itens que conseguem ir para o checkout (precisam de variante Shopify)
+    const lines = items
+      .filter(i => i.shopifyVariantId)
+      .map(i => ({ merchandiseId: i.shopifyVariantId, quantity: i.qty }));
+
+    // Sem credenciais ou sem itens válidos → não há como criar um checkout real.
+    // NUNCA abrir um carrinho Shopify vazio: mostra erro claro no próprio carrinho.
+    if (!shopifyDomain || !shopifyToken || lines.length === 0) {
+      setCheckoutErr('checkout_unavailable');
+      return;
     }
 
-    // Fallback: redireciona para o domínio Shopify
-    const domain = shopifyDomain?.replace('.myshopify.com', '') || 'retromundial';
-    window.open(`https://${domain}.myshopify.com/cart`, '_blank');
-    setLoading(false);
+    setLoading(true);
+
+    // Estágio-chave do funil: dispara InitiateCheckout (navegador + CAPI + funil)
+    trackEvent('InitiateCheckout', {
+      value: subtotal - discount,
+      currency: 'EUR',
+      num_items: items.reduce((s, i) => s + i.qty, 0),
+      content_ids: items.map(i => i.shopifyVariantId || i.id).filter(Boolean),
+    });
+
+    try {
+      const url = await checkoutCart(shopifyDomain, shopifyToken, lines);
+      // Mobile (sobretudo navegadores in-app do Instagram/Facebook) bloqueia ou
+      // perde o contexto com window.open(_blank). Navega na mesma aba para garantir
+      // que o checkout Shopify carrega. No desktop mantém nova aba (preserva o carrinho).
+      const isMobile = /Android|iPhone|iPad|iPod|Mobile|Instagram|FBAN|FBAV/i.test(navigator.userAgent);
+      if (isMobile) {
+        window.location.href = url;
+        // não limpa loading: a página navega para fora
+      } else {
+        window.open(url, '_blank');
+        setLoading(false);
+      }
+    } catch (e) {
+      console.error('Shopify checkout error:', e);
+      setCheckoutErr('checkout_failed');
+      setLoading(false);
+    }
   }
 
-  if (window.fbq) {
+  useEffect(() => {
     const totalValue = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    window.fbq('track', 'ViewCart', {
+    trackEvent('ViewCart', {
       value: totalValue,
       currency: 'EUR',
       num_items: items.length,
     });
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="fixed inset-0 z-40">
@@ -60,7 +87,7 @@ export default function Cart({ items, config, onClose, onUpdate, onRemove }) {
       <div className="absolute right-0 top-0 h-full w-full max-w-md bg-gray-900 flex flex-col shadow-2xl">
         <div className="flex items-center justify-between p-6 border-b border-gray-800">
           <div>
-            <h2 className="text-xl font-black">SEU CARRINHO</h2>
+            <h2 className="text-xl font-black">YOUR CART</h2>
             <p className="text-gray-400 text-sm">{items.length} item{items.length !== 1 ? 's' : ''}</p>
           </div>
           <button onClick={onClose} className="hover:text-amber-500 transition-colors p-1"><X size={22} /></button>
@@ -141,14 +168,32 @@ export default function Cart({ items, config, onClose, onUpdate, onRemove }) {
               </div>
             </div>
 
+            {checkoutErr && (
+              <div className="flex items-start gap-2 text-red-300 text-xs bg-red-950/40 border border-red-900 rounded-sm p-3">
+                <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold">
+                    {checkoutErr === 'checkout_failed'
+                      ? "We couldn't open checkout right now."
+                      : 'Checkout is temporarily unavailable.'}
+                  </p>
+                  <p className="text-red-300/80">
+                    Your cart is saved — please try again. If it keeps happening,{' '}
+                    <a href={`mailto:${SUPPORT_EMAIL}?subject=Checkout%20issue`}
+                      className="underline hover:text-white">contact us</a> and we'll help you order.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <button onClick={handleCheckout} disabled={loading}
               className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-black font-black py-4 rounded-sm transition-colors tracking-wider uppercase text-sm flex items-center justify-center gap-2">
-              {loading ? 'Please wait...' : <><span>Checkout</span> <ExternalLink size={14} /></>}
+              {loading ? 'Please wait...' : <><span>{checkoutErr ? 'Try again' : 'Checkout'}</span> <ExternalLink size={14} /></>}
             </button>
             <div className="flex items-center justify-center gap-4 text-gray-500 text-xs">
-              <span className="flex items-center gap-1"><Shield size={11} /> Seguro</span>
-              <span className="flex items-center gap-1"><RotateCcw size={11} /> 30 dias</span>
-              <span className="flex items-center gap-1"><Truck size={11} /> Rápido</span>
+              <span className="flex items-center gap-1"><Shield size={11} /> Secure</span>
+              <span className="flex items-center gap-1"><RotateCcw size={11} /> 30 days</span>
+              <span className="flex items-center gap-1"><Truck size={11} /> Fast</span>
             </div>
           </div>
         )}

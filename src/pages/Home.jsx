@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Check, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProductImage, Badge, PriceDisplay, Stars, FLAGS } from '../components/shared';
+import { trackEvent } from '../tracking';
 
 const COUNTRY_LABELS = {
   Brazil:    { pt: 'Brasil',    en: 'BRAZIL'    },
@@ -40,9 +41,28 @@ export default function HomePage({ products, config, onNavigate }) {
     .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
 
   const countriesOrder = (hp.countries || []).map(c => c.key);
+  // Países que têm produtos ativos (para tabs do All Drops)
+  const activeCountryTabs = [
+    'All',
+    ...countriesOrder
+      .filter(k => activeProducts.some(p => p.country && p.country.toUpperCase() === k.toUpperCase()))
+      .map(k => COUNTRY_LABELS[k]?.en || k.toUpperCase()),
+    // Países dos produtos que não estão na ordem configurada
+    ...activeProducts
+      .map(p => p.country)
+      .filter(Boolean)
+      .filter(c => !countriesOrder.some(k => k.toUpperCase() === c.toUpperCase()))
+      .filter((c, i, arr) => arr.indexOf(c) === i)
+      .map(c => COUNTRY_LABELS[c]?.en || c.toUpperCase()),
+  ];
   const filteredProducts = filter === 'All'
     ? activeProducts
-    : activeProducts.filter(p => COUNTRY_LABELS[p.country]?.en === filter);
+    : activeProducts.filter(p => {
+        if (!p.country) return false;
+        // compara ignorando capitalização: "Brazil" == "BRAZIL"
+        return p.country.toUpperCase() === filter.toUpperCase()
+          || (COUNTRY_LABELS[p.country]?.en || '').toUpperCase() === filter.toUpperCase();
+      });
 
   useEffect(() => {
     const obs = new IntersectionObserver(
@@ -139,7 +159,7 @@ export default function HomePage({ products, config, onNavigate }) {
               return (
                 <button
                   key={key}
-                  onClick={() => product && onNavigate('product', product)}
+                  onClick={() => onNavigate('shop', null, key)}
                   disabled={!product}
                   className={`snap-start flex-shrink-0 w-[150px] sm:w-auto sm:flex-1 relative overflow-hidden group transition-all aspect-[3/4]
                     ${product ? 'cursor-pointer' : 'opacity-40 cursor-default'}`}>
@@ -185,7 +205,7 @@ export default function HomePage({ products, config, onNavigate }) {
 
           {/* filtros */}
           <div className="flex gap-2 overflow-x-auto pb-4 mb-8 scrollbar-none -mx-5 px-5 sm:mx-0 sm:px-0 sm:flex-wrap">
-            {['All', ...countriesOrder.map(k => COUNTRY_LABELS[k]?.en || k)].map(tab => (
+            {activeCountryTabs.map(tab => (
               <button
                 key={tab}
                 onClick={() => setFilter(tab)}
@@ -208,10 +228,7 @@ export default function HomePage({ products, config, onNavigate }) {
       <section className="relative overflow-hidden">
         {/* fundo: vídeo, imagem ou branco */}
         {editorial.mediaType === 'video' && editorial.mediaUrl ? (
-          <video
-            className="absolute inset-0 w-full h-full object-cover"
-            src={editorial.mediaUrl}
-            autoPlay muted loop playsInline />
+          <EditorialVideo src={editorial.mediaUrl} />
         ) : editorial.mediaType === 'image' && editorial.mediaUrl ? (
           <img src={editorial.mediaUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
         ) : null}
@@ -350,12 +367,10 @@ export default function HomePage({ products, config, onNavigate }) {
             <form
               onSubmit={e => {
                 e.preventDefault();
-                if (window.fbq) {
-                  window.fbq('track', 'Lead', {
-                    content_name: 'home_email',
-                    content_type: 'newsletter',
-                  });
-                }
+                trackEvent('Lead', {
+                  content_name: 'home_email',
+                  content_type: 'newsletter',
+                }, email);
                 setEmailDone(true);
               }}
               className="flex flex-col sm:flex-row gap-2">
@@ -477,15 +492,42 @@ function DropsCarousel({ products, onNavigate }) {
 // ─── PRODUCT CARD ─────────────────────────────────────────────────────────────
 
 function ProductCard({ product, onNavigate }) {
-  const [hovered, setHovered] = useState(null);
-  const displayVariant = hovered || product.variants?.[0];
-  const displayImage   = displayVariant?.imageUrl || product.images?.[0] || null;
+  const [imgIdx, setImgIdx] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+  const intervalRef = useRef(null);
+
+  // Fotos admin (max 4, sem Shopify CDN) + fotos de variantes de cor
+  const adminImgs = (product.images || [])
+    .filter(u => u && !u.includes('cdn.shopify.com'))
+    .slice(0, 4);
+  const variantImgs = (product.variants || []).map(v => v.imageUrl).filter(Boolean);
+  const allImages = [...new Map([...adminImgs, ...variantImgs].map(u => [u, u])).values()];
+
+  useEffect(() => {
+    if (isHovered && allImages.length > 1) {
+      intervalRef.current = setInterval(() => {
+        setImgIdx(i => (i + 1) % allImages.length);
+      }, 1800);
+    } else {
+      clearInterval(intervalRef.current);
+      if (!isHovered) setImgIdx(0);
+    }
+    return () => clearInterval(intervalRef.current);
+  }, [isHovered, allImages.length]);
+
+  const displayImage = allImages[imgIdx] || null;
   const discount = product.compareAtPrice && product.compareAtPrice > product.price
     ? Math.round((1 - product.price / product.compareAtPrice) * 100) : null;
 
   return (
     <div className="group">
-      <div className="relative overflow-hidden cursor-pointer" style={{ aspectRatio: '3/4' }} onClick={() => onNavigate('product', product)}>
+      <div
+        className="relative overflow-hidden cursor-pointer"
+        style={{ aspectRatio: '3/4' }}
+        onClick={() => onNavigate('product', product)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
         <ProductImage product={product} variantImageUrl={displayImage}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
 
@@ -500,14 +542,14 @@ function ProductCard({ product, onNavigate }) {
           </div>
         )}
 
-        {product.variants?.length > 1 && (
-          <div className="absolute bottom-3 left-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            {product.variants.map(v => (
-              <button key={v.id}
-                onMouseEnter={() => setHovered(v)} onMouseLeave={() => setHovered(null)}
-                onClick={e => { e.stopPropagation(); onNavigate('product', product); }}
-                className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 transition-all ${hovered?.id === v.id ? 'border-white scale-110' : 'border-transparent'}`}
-                style={{ backgroundColor: v.hex }} title={v.name} />
+        {/* Dots de navegação — aparecem no hover quando há mais de 1 foto */}
+        {allImages.length > 1 && (
+          <div className={`absolute bottom-8 left-0 right-0 flex justify-center gap-1.5 transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
+            {allImages.map((_, i) => (
+              <button key={i}
+                onClick={e => { e.stopPropagation(); setImgIdx(i); }}
+                className={`w-1.5 h-1.5 rounded-full transition-colors ${i === imgIdx ? 'bg-amber-500' : 'bg-white/60'}`}
+              />
             ))}
           </div>
         )}
@@ -531,5 +573,31 @@ function ProductCard({ product, onNavigate }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// Componente isolado para vídeo de fundo — evita que re-renders do config
+// interrompam o buffering. Chama .play() explicitamente para garantir
+// autoplay em mobile (iOS/Android bloqueiam o atributo autoPlay do React).
+function EditorialVideo({ src }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    v.load();
+    v.play().catch(() => {});
+  }, [src]);
+
+  return (
+    <video
+      ref={ref}
+      key={src}
+      className="absolute inset-0 w-full h-full object-cover"
+      src={src}
+      muted
+      loop
+      playsInline
+      preload="auto"
+    />
   );
 }

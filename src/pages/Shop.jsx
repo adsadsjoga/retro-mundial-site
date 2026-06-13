@@ -1,12 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { ProductImage, Badge, PriceDisplay, Stars } from '../components/shared';
 
-const FILTERS = ['All', 'Brazil', 'Argentina', 'England', 'France', 'Spain', 'Germany'];
+const DEFAULT_FILTERS = ['All', 'Brazil', 'Argentina', 'England', 'France', 'Spain', 'Germany'];
 
-export default function ShopPage({ products, config, onNavigate }) {
-  const [filter, setFilter] = useState('All');
+export default function ShopPage({ products, config, onNavigate, selectedCountry, onFilterChange }) {
   const active = (products || []).filter(p => p.active);
+
+  // Gera lista de países dinamicamente a partir dos produtos
+  const uniqueCountries = ['All', ...new Set(active.map(p => p.country).filter(Boolean))];
+  const filters = uniqueCountries.length > 1 ? uniqueCountries : DEFAULT_FILTERS;
+
+  // Inicia com o país selecionado (se vir do Home), senão 'All'
+  const [filter, setFilter] = useState(selectedCountry || 'All');
+
+  // Sincroniza quando selectedCountry muda após o mount (ex: clique em Home)
+  useEffect(() => {
+    if (selectedCountry) setFilter(selectedCountry);
+  }, [selectedCountry]);
   const filtered = filter === 'All' ? active : active.filter(p => p.country === filter);
 
   // Scroll reveal
@@ -30,7 +41,7 @@ export default function ShopPage({ products, config, onNavigate }) {
 
         {/* Filtros */}
         <div className="flex gap-2 overflow-x-auto pb-4 mb-10 scroll-reveal" style={{ scrollbarWidth: 'none' }}>
-          {FILTERS.map(f => (
+          {filters.map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className={`flex-shrink-0 px-4 py-2 text-xs font-bold uppercase tracking-wide rounded-sm transition-all ${
                 filter === f ? 'bg-amber-500 text-black' : 'border border-gray-700 text-gray-400 hover:border-gray-400 hover:text-white'
@@ -58,19 +69,45 @@ export default function ShopPage({ products, config, onNavigate }) {
 }
 
 function ProductCard({ product, onNavigate }) {
-  const [hoveredVariant, setHoveredVariant] = useState(null);
+  const [imgIdx, setImgIdx] = useState(0);
+  const [hovered, setHovered] = useState(false);
+  const intervalRef = useRef(null);
 
-  const displayVariant = hoveredVariant || product.variants?.[0];
-  const displayImage = displayVariant?.imageUrl || product.images?.[0] || null;
+  // Mesmas fotos da galeria do produto: até 4 fotos admin + variantes de cor
+  const adminImgs = (product.images || []).filter(url => url && !url.includes('cdn.shopify.com')).slice(0, 4);
+  const variantImgs = (product.variants || []).map(v => v.imageUrl).filter(Boolean);
+  const allImages = [...new Map(
+    [...adminImgs, ...variantImgs].map(url => [url, url])
+  ).values()];
+
+  // Auto-avança imagens ao fazer hover (intervalo 1.8s)
+  useEffect(() => {
+    if (hovered && allImages.length > 1) {
+      intervalRef.current = setInterval(() => {
+        setImgIdx(i => (i + 1) % allImages.length);
+      }, 1800);
+    } else {
+      clearInterval(intervalRef.current);
+      if (!hovered) setImgIdx(0);
+    }
+    return () => clearInterval(intervalRef.current);
+  }, [hovered, allImages.length]);
+
+  const displayImage = allImages[imgIdx] || null;
   const discount = product.compareAtPrice && product.compareAtPrice > product.price
     ? Math.round((1 - product.price / product.compareAtPrice) * 100)
     : null;
 
   return (
     <div className="scroll-reveal group">
-      <div className="relative overflow-hidden rounded-sm cursor-pointer" onClick={() => onNavigate('product', product)}>
+      <div
+        className="relative overflow-hidden rounded-sm cursor-pointer"
+        onClick={() => onNavigate('product', product)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
         <ProductImage product={product} variantImageUrl={displayImage}
-          className={`w-full aspect-[3/4] transition-transform duration-500 ${hoveredVariant ? '' : 'group-hover:scale-105'}`} />
+          className="w-full aspect-[3/4] transition-transform duration-500 group-hover:scale-105" />
 
         <div className="absolute top-3 left-3 flex flex-col gap-1.5">
           <Badge label={product.badge} colorClass={product.badgeColor} />
@@ -85,19 +122,14 @@ function ProductCard({ product, onNavigate }) {
           </div>
         )}
 
-        {/* Swatches de cor no hover */}
-        {product.variants?.length > 1 && (
-          <div className="absolute bottom-3 left-3 flex gap-1.5">
-            {product.variants.map(v => (
-              <button key={v.id}
-                onMouseEnter={() => setHoveredVariant(v)}
-                onMouseLeave={() => setHoveredVariant(null)}
-                onClick={e => { e.stopPropagation(); onNavigate('product', product); }}
-                className={`w-5 h-5 rounded-full border-2 transition-all ${
-                  hoveredVariant?.id === v.id ? 'border-white scale-110' : 'border-gray-500'
-                }`}
-                style={{ backgroundColor: v.hex }}
-                title={v.name} />
+        {/* Dots de navegação — aparecem no hover quando há mais de 1 foto */}
+        {allImages.length > 1 && (
+          <div className={`absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 transition-opacity duration-200 ${hovered ? 'opacity-100' : 'opacity-0'}`}>
+            {allImages.map((_, i) => (
+              <button key={i}
+                onClick={e => { e.stopPropagation(); setImgIdx(i); }}
+                className={`w-1.5 h-1.5 rounded-full transition-colors ${i === imgIdx ? 'bg-amber-500' : 'bg-white/60'}`}
+              />
             ))}
           </div>
         )}

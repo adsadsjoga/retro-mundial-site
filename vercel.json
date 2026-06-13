@@ -8,5 +8,8 @@
       "memory": 1024,
       "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    { "path": "/api/funnel?snapshot=1", "schedule": "0 6 * * 1" }
+  ]
 }
