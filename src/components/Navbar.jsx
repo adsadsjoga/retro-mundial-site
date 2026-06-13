@@ -7,7 +7,7 @@ const NAV_LINKS = [
   { id: 'about', label: 'Our Story' },
 ];
 
-export default function Navbar({ cartCount, onCartOpen, onNavigate, currentPage, onAdminClick, announcementText }) {
+export default function Navbar({ cartCount, onCartOpen, onNavigate, currentPage, onAdminClick, announcementText, logoUrl, logoSubtitle }) {
   const [scrolled,  setScrolled]  = useState(false);
   const [menuOpen,  setMenuOpen]  = useState(false);
   const logoClicks  = useRef(0);
@@ -62,11 +62,17 @@ export default function Navbar({ cartCount, onCartOpen, onNavigate, currentPage,
           <div className="flex items-center justify-between h-14 sm:h-16">
 
             {/* logo */}
-            <button onClick={handleLogoClick} className="flex flex-col leading-none text-left flex-shrink-0">
-              <span className="text-base sm:text-lg font-black tracking-tighter">RETRO MUNDIAL</span>
-              <span className="text-amber-500 text-[8px] sm:text-[9px] font-bold tracking-[0.28em] uppercase">
-                Moments That Matter
-              </span>
+            <button onClick={handleLogoClick} className="flex items-center leading-none text-left flex-shrink-0">
+              {logoUrl ? (
+                <img src={logoUrl} alt="Logo" className="h-8 sm:h-10 w-auto object-contain" />
+              ) : (
+                <span className="flex flex-col leading-none">
+                  <span className="text-base sm:text-lg font-black tracking-tighter">RETRO MUNDIAL</span>
+                  <span className="text-amber-500 text-[8px] sm:text-[9px] font-bold tracking-[0.28em] uppercase">
+                    {logoSubtitle || 'Moments That Matter'}
+                  </span>
+                </span>
+              )}
             </button>
 
             {/* desktop links */}

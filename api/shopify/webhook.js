@@ -30,21 +30,22 @@ export default async function handler(req, res) {
 
   try {
     const topic = req.headers['x-shopify-topic'];
-    const { id, handle, title, variants } = req.body;
+    const body = req.body;
 
-    console.log(`[WEBHOOK] Recebido: ${topic} para produto ${handle}`);
+    console.log(`[WEBHOOK] Recebido: ${topic}`);
 
     // Casos de uso:
     // 1. products/create — novo produto adicionado
     // 2. products/update — produto atualizado
     // 3. products/delete — produto deletado
     // 4. inventory_levels/update — estoque mudou
+    // 5. orders/create — novo pedido (para Meta Pixel Purchase event)
 
     if (topic === 'products/create' || topic === 'products/update') {
-      // Atualiza/insere produto no Supabase
+      const { id: productId, handle, title } = body;
       const { error } = await supabase.from('products').upsert(
         {
-          shopify_id: id,
+          shopify_id: productId,
           handle,
           title,
           updated_at: new Date(),
@@ -57,11 +58,29 @@ export default async function handler(req, res) {
     }
 
     if (topic === 'inventory_levels/update') {
-      // Atualiza estoque
-      // req.body tem: { inventory_item_id, available_adjustment, updated_at, ...}
-      const { error } = await supabase.from('products').update({ updated_at: new Date() }).eq('shopify_id', id);
+      const { error } = await supabase.from('products').update({ updated_at: new Date() }).eq('shopify_id', body.id);
       if (error) throw error;
-      console.log(`✅ Estoque atualizado para ${handle}`);
+      console.log(`✅ Estoque atualizado`);
+    }
+
+    // Meta Pixel — Purchase event quando uma encomenda é criada
+    if (topic === 'orders/create') {
+      const { id: orderId, total_price, currency, line_items, created_at, email } = body;
+      const totalValue = parseFloat(total_price);
+      const contentIds = line_items.map(item => item.product_id.toString());
+      const contentNames = line_items.map(item => item.title).join(', ');
+
+      await sendMetaPixelPurchase({
+        orderId,
+        value: totalValue,
+        currency: currency || 'EUR',
+        content_name: contentNames,
+        content_ids: contentIds,
+        num_items: line_items.length,
+        email,
+      });
+
+      console.log(`✅ Pedido ${orderId} enviado ao Meta Pixel`);
     }
 
     return res.status(200).json({ success: true, webhook: topic });
@@ -73,3 +92,56 @@ export default async function handler(req, res) {
 
 // Importante: Shopify precisa que a resposta seja enviada em < 5s.
 // Se processar algo pesado, use job queue (Redis, etc).
+
+async function sendMetaPixelPurchase(orderData) {
+  const pixelId = process.env.META_PIXEL_ID;
+  const accessToken = process.env.META_ACCESS_TOKEN;
+
+  if (!pixelId || !accessToken) {
+    console.warn('[META] Pixel ID ou Access Token não configurados');
+    return;
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  const event = {
+    event_name: 'Purchase',
+    event_time: timestamp,
+    event_id: `order_${orderData.orderId}`,
+    event_source_url: 'https://www.retromundial.com',
+    user_data: {
+      em: orderData.email ? hashEmail(orderData.email) : undefined,
+    },
+    custom_data: {
+      value: orderData.value,
+      currency: orderData.currency,
+      content_name: orderData.content_name,
+      content_ids: orderData.content_ids,
+      num_items: orderData.num_items,
+      content_type: 'product',
+    },
+  };
+
+  try {
+    const res = await fetch(`https://graph.facebook.com/v18.0/${pixelId}/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        data: [event],
+        access_token: accessToken,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      console.error(`[META ERROR] ${res.status}: ${err}`);
+    } else {
+      console.log('[META] ✅ Purchase event enviado');
+    }
+  } catch (err) {
+    console.error('[META ERROR]', err);
+  }
+}
+
+function hashEmail(email) {
+  return crypto.createHash('sha256').update(email.toLowerCase().trim()).digest('hex');
+}

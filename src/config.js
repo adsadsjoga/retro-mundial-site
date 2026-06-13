@@ -9,6 +9,8 @@ export const DEFAULT_CONFIG = {
     announcementBar: '🏆 FREE SHIPPING OVER €50 · USE RETRO15 FOR 15% OFF YOUR FIRST ORDER',
     popupDelaySecs: 9,
     freeShippingThreshold: 50,
+    logoUrl: '',        // URL da imagem do logo (vazio = usa texto)
+    logoSubtitle: 'Moments That Matter',
   },
 
   integrations: {
@@ -114,6 +116,8 @@ export const DEFAULT_CONFIG = {
       ],
       sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
       images: [],  // galeria extra
+      coverImageUrl: '',  // foto de capa no All Drops (não aparece na galeria do produto)
+      videoUrl: '',       // vídeo na galeria do produto
     },
     {
       id: 2,
@@ -146,6 +150,7 @@ export const DEFAULT_CONFIG = {
       ],
       sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
       images: [],
+      coverImageUrl: '',
     },
     {
       id: 3,
@@ -179,6 +184,7 @@ export const DEFAULT_CONFIG = {
       ],
       sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
       images: [],
+      coverImageUrl: '',
     },
     {
       id: 4,
@@ -212,6 +218,7 @@ export const DEFAULT_CONFIG = {
       ],
       sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
       images: [],
+      coverImageUrl: '',
     },
     {
       id: 5,
@@ -244,6 +251,7 @@ export const DEFAULT_CONFIG = {
       ],
       sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
       images: [],
+      coverImageUrl: '',
     },
     {
       id: 6,
@@ -276,6 +284,7 @@ export const DEFAULT_CONFIG = {
       ],
       sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
       images: [],
+      coverImageUrl: '',
     },
   ],
 };
@@ -317,8 +326,10 @@ function parseAndMergeConfig(saved) {
     const def = DEFAULT_CONFIG.products.find(d => d.id === p.id || d.handle === p.handle);
     return {
       ...p,
-      shopifyHandle: p.shopifyHandle || def?.shopifyHandle || '',
-      sortOrder:     p.sortOrder     ?? (i + 1),
+      shopifyHandle:  p.shopifyHandle  || def?.shopifyHandle || '',
+      sortOrder:      p.sortOrder      ?? (i + 1),
+      coverImageUrl:  p.coverImageUrl  ?? '',
+      videoUrl:       p.videoUrl       ?? '',
     };
   });
   return merged;
@@ -336,13 +347,25 @@ export function useConfig() {
   });
 
   const saveTimer = useRef();
+
+  // Atualiza estado + localStorage + auto-salva no Supabase (com debounce)
   const setConfig = useCallback((updater) => {
     setConfigState(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
-      // grava no backend (debounce p/ não disparar a cada tecla)
       clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => saveRemoteConfig(next), 800);
+      return next;
+    });
+  }, []);
+
+  // Atualiza estado + localStorage SEM salvar no Supabase
+  // Usado para mudanças automáticas (ex: Shopify fetch adiciona novos produtos)
+  // para não sobrescrever dados valiosos (logo, vídeo) antes do remote carregar
+  const setConfigSilent = useCallback((updater) => {
+    setConfigState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
       return next;
     });
   }, []);
@@ -352,9 +375,43 @@ export function useConfig() {
     let cancelled = false;
     loadRemoteConfig().then(remote => {
       if (cancelled || !remote) return;
-      const merged = parseAndMergeConfig(JSON.stringify(remote));
-      setConfigState(merged);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); } catch {}
+      const remoteConfig = parseAndMergeConfig(JSON.stringify(remote));
+
+      // Preserva media local (imagens/vídeos) que o Supabase pode não ter ainda
+      // (ex: upload feito antes do save explícito chegar ao Supabase)
+      try {
+        const localRaw = localStorage.getItem(STORAGE_KEY);
+        if (localRaw) {
+          const local = JSON.parse(localRaw);
+          // site: preserva logo e vídeo editorial se Supabase tiver vazio
+          if (!remoteConfig.site?.logoUrl && local?.site?.logoUrl)
+            remoteConfig.site = { ...remoteConfig.site, logoUrl: local.site.logoUrl };
+          if (!remoteConfig.homepage?.editorial?.mediaUrl && local?.homepage?.editorial?.mediaUrl) {
+            remoteConfig.homepage = {
+              ...remoteConfig.homepage,
+              editorial: { ...remoteConfig.homepage?.editorial, mediaUrl: local.homepage.editorial.mediaUrl },
+            };
+          }
+          // produtos: preserva imagens e vídeo locais se Supabase tiver vazios
+          remoteConfig.products = remoteConfig.products.map(rp => {
+            const lp = local?.products?.find(p => p.id === rp.id || p.handle === rp.handle);
+            if (!lp) return rp;
+            return {
+              ...rp,
+              // filtra URLs do Shopify CDN (dados antigos) — só mantém imagens do admin (Cloudinary)
+              images: (() => {
+                const rpImgs = (rp.images || []).filter(u => u && !u.includes('cdn.shopify.com'));
+                const lpImgs = (lp.images || []).filter(u => u && !u.includes('cdn.shopify.com'));
+                return rpImgs.some(Boolean) ? rpImgs : lpImgs;
+              })(),
+              videoUrl: rp.videoUrl                 || lp.videoUrl || '',
+            };
+          });
+        }
+      } catch {}
+
+      setConfigState(remoteConfig);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(remoteConfig)); } catch {}
     });
     return () => { cancelled = true; };
   }, []);
@@ -377,5 +434,5 @@ export function useConfig() {
     setConfigState(DEFAULT_CONFIG);
   }, []);
 
-  return { config, setConfig, resetConfig };
+  return { config, setConfig, setConfigSilent, resetConfig };
 }

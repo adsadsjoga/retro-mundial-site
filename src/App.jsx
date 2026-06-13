@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useConfig } from './config';
 import { fetchShopifyProducts, mergeWithLocalConfig } from './shopify';
+import { trackEvent } from './tracking';
 import Navbar from './components/Navbar';
 import Cart from './components/Cart';
 import EmailPopup from './components/EmailPopup';
@@ -21,16 +22,18 @@ function useMetaPixel(pixelId) {
     !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
     /* eslint-enable */
     window.fbq('init', pixelId);
-    window.fbq('track', 'PageView');
+    // PageView via trackEvent → navegador + CAPI (deduplicado) + registro no funil
+    trackEvent('PageView');
   }, [pixelId]);
 }
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const { config, setConfig, resetConfig } = useConfig();
+  const { config, setConfig, setConfigSilent, resetConfig } = useConfig();
   const [products, setProducts] = useState(config.products);
   const [page, setPage] = useState('home');
+  const [shopFilter, setShopFilter] = useState(null);
   const shopifyCache = useRef([]);
   const [currentProduct, setCurrentProduct] = useState(null);
   const [cart, setCart] = useState([]);
@@ -50,7 +53,8 @@ export default function App() {
       .then(shopifyProducts => {
         shopifyCache.current = shopifyProducts;
         // Adiciona ao config qualquer produto novo da Shopify (fica inativo por padrão)
-        setConfig(prev => {
+        // Usa setConfigSilent para NÃO sobrescrever o Supabase com config incompleta
+        setConfigSilent(prev => {
           const existingHandles = new Set((prev.products || []).map(p => p.shopifyHandle || p.handle));
           const newOnes = shopifyProducts
             .filter(sp => !existingHandles.has(sp.handle))
@@ -89,6 +93,9 @@ export default function App() {
   useEffect(() => {
     if (shopifyCache.current.length > 0) {
       setProducts(mergeWithLocalConfig(shopifyCache.current, config.products));
+    } else {
+      // Shopify ainda não carregou — usa os produtos da config diretamente
+      setProducts(config.products);
     }
   }, [config.products]);
 
@@ -111,24 +118,23 @@ export default function App() {
 
   // ─── NAVEGAÇÃO ───────────────────────────────────────────────────────────────
 
-  function navigate(p, product = null) {
+  function navigate(p, product = null, filter = null) {
     setPage(p);
     if (product) setCurrentProduct(product);
+    if (filter) setShopFilter(filter);
   }
 
   // ─── CARRINHO ────────────────────────────────────────────────────────────────
 
   function addToCart(product, variant, size, qty = 1) {
-    if (window.fbq) {
-      window.fbq('track', 'AddToCart', {
-        content_name: product.name,
-        content_type: 'product',
-        content_ids: [product.id],
-        value: (product.salePrice || product.price) * qty,
-        currency: 'EUR',
-        num_items: qty,
-      });
-    }
+    trackEvent('AddToCart', {
+      content_name: product.name,
+      content_type: 'product',
+      content_ids: [product.id],
+      value: (product.salePrice || product.price) * qty,
+      currency: 'EUR',
+      num_items: qty,
+    });
 
     setCart(prev => {
       const key = { id: product.id, variantId: variant?.id, size };
@@ -176,7 +182,7 @@ export default function App() {
           onUpdate={updateCart} onRemove={removeFromCart} />
       )}
       {adminOpen && (
-        <AdminPanel config={activeConfig} setConfig={setConfig} resetConfig={resetConfig} onClose={() => setAdminOpen(false)} />
+        <AdminPanel config={activeConfig} setConfig={setConfig} resetConfig={resetConfig} onClose={() => setAdminOpen(false)} products={products} />
       )}
 
       <Navbar
@@ -186,6 +192,8 @@ export default function App() {
         currentPage={page}
         onAdminClick={() => setAdminOpen(true)}
         announcementText={config.site.announcementBar}
+        logoUrl={config.site.logoUrl}
+        logoSubtitle={config.site.logoSubtitle}
       />
 
       <main>
@@ -193,7 +201,7 @@ export default function App() {
           <HomePage products={products} config={activeConfig} onNavigate={navigate} onAddToCart={addToCart} />
         )}
         {page === 'shop' && (
-          <ShopPage products={products} config={activeConfig} onNavigate={navigate} />
+          <ShopPage products={products} config={activeConfig} onNavigate={navigate} selectedCountry={shopFilter} onFilterChange={setShopFilter} />
         )}
         {page === 'product' && currentProduct && (
           <ProductPage
