@@ -53,8 +53,17 @@ export default function Cart({ items, config, onClose, onUpdate, onRemove }) {
 
     try {
       const url = await checkoutCart(shopifyDomain, shopifyToken, lines);
-      window.open(url, '_blank');
-      setLoading(false);
+      // Mobile (sobretudo navegadores in-app do Instagram/Facebook) bloqueia ou
+      // perde o contexto com window.open(_blank). Navega na mesma aba para garantir
+      // que o checkout Shopify carrega. No desktop mantém nova aba (preserva o carrinho).
+      const isMobile = /Android|iPhone|iPad|iPod|Mobile|Instagram|FBAN|FBAV/i.test(navigator.userAgent);
+      if (isMobile) {
+        window.location.href = url;
+        // não limpa loading: a página navega para fora
+      } else {
+        window.open(url, '_blank');
+        setLoading(false);
+      }
     } catch (e) {
       console.error('Shopify checkout error:', e);
       setCheckoutErr('checkout_failed');
