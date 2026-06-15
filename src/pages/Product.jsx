@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Shield, Truck, RotateCcw, Check, ExternalLink } from 'lucide-react';
-import { ProductImage, Stars, Badge, PriceDisplay } from '../components/shared';
+import { ProductImage, Badge, PriceDisplay } from '../components/shared';
 import { checkoutWithVariant } from '../shopify';
 import { trackEvent } from '../tracking';
 
@@ -80,12 +80,24 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
       num_items: qty,
     });
 
+    // Mobile (sobretudo webviews do Instagram/Facebook) bloqueia ou perde o
+    // contexto com window.open(_blank). No mobile navega na mesma aba; no
+    // desktop mantém nova aba. Mesma lógica usada no carrinho (Cart.jsx).
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile|Instagram|FBAN|FBAV/i.test(navigator.userAgent);
+    const openCheckout = (url) => {
+      if (isMobile) {
+        window.location.href = url; // a página navega para fora; não limpa loading
+      } else {
+        window.open(url, '_blank');
+        setCheckingOut(false);
+      }
+    };
+
     const variant = resolvedVariant();
     if (shopifyDomain && shopifyToken && variant?.shopifyVariantId) {
       try {
         const url = await checkoutWithVariant(shopifyDomain, shopifyToken, variant.shopifyVariantId, qty);
-        window.open(url, '_blank');
-        setCheckingOut(false);
+        openCheckout(url);
         return;
       } catch (e) {
         console.warn('Checkout error:', e);
@@ -94,8 +106,8 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
 
     // Fallback: abre a página do produto no Shopify
     const domain = shopifyDomain || 'retromundial.myshopify.com';
-    window.open(`https://${domain.replace('https://','')}${product.shopifyUrl ? '' : `/products/${product.handle}`}${product.shopifyUrl || ''}`, '_blank');
-    setCheckingOut(false);
+    const fallbackUrl = `https://${domain.replace('https://','')}${product.shopifyUrl ? '' : `/products/${product.handle}`}${product.shopifyUrl || ''}`;
+    openCheckout(fallbackUrl);
   }
 
   const relatedProducts = (config.products || [])
@@ -189,10 +201,12 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
               {product.copy?.subtitle || 'Limited edition · 500 units'}
             </p>
 
+            {/* Marca nova: sem reviews reais ainda — não exibir prova social falsa.
+                Em vez de estrelas inventadas, comunicar exclusividade honesta. */}
             <div className="flex items-center gap-2 mb-3">
-              <Stars rating={4.9} />
-              <span className="text-sm font-bold">4.9</span>
-              <span className="text-gray-500 text-xs">(Verified)</span>
+              <span className="text-amber-400 text-xs font-bold uppercase tracking-wide">
+                New drop · Limited to 500 units per design
+              </span>
             </div>
 
             <div className="mb-4">
@@ -339,7 +353,7 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
             <div className="border-t border-gray-800 pt-4">
               <h3 className="font-black text-xs uppercase tracking-widest mb-3">Specifications</h3>
               <div className="space-y-1.5">
-                {[['Material','100% Organic Cotton GOTS'],['Cut','Oversized — size down for regular fit'],['Edition','Limited · 500 units'],['Print','Premium screen print'],['Care','Cold wash, dry in shade']].map(([k,v]) => (
+                {[['Material','Soft premium fabric'],['Cut','Oversized — size down for regular fit'],['Edition','Limited · 500 units'],['Print','Printed on demand in Europe'],['Care','Cold wash, dry in shade']].map(([k,v]) => (
                   <div key={k} className="flex gap-3 text-xs">
                     <span className="text-gray-500 w-16 flex-shrink-0">{k}</span>
                     <span className="text-gray-300">{v}</span>
