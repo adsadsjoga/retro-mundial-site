@@ -233,13 +233,15 @@ export default function App() {
 
       <Footer config={activeConfig} onNavigate={navigate} />
 
-      {/* Mobile sticky CTA */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 md:hidden bg-black/95 backdrop-blur-sm border-t border-gray-800 p-3">
-        <button onClick={() => navigate('shop')}
-          className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black py-3.5 text-sm tracking-widest uppercase rounded-sm transition-colors">
-          Shop Collection — From €{Math.min(...products.map(p => p.price)).toFixed(2)}
-        </button>
-      </div>
+      {/* Mobile sticky CTA — escondido no product page (que tem o seu próprio Buy Now sticky) */}
+      {page !== 'product' && (
+        <div className="fixed bottom-0 left-0 right-0 z-20 md:hidden bg-black/95 backdrop-blur-sm border-t border-gray-800 p-3">
+          <button onClick={() => navigate('shop')}
+            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black py-3.5 text-sm tracking-widest uppercase rounded-sm transition-colors">
+            Shop Collection — From €{Math.min(...products.map(p => p.price)).toFixed(2)}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,15 +5,27 @@ export const FLAGS = {
   England: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', France: '🇫🇷', Spain: '🇪🇸',
 };
 
+// ─── OTIMIZAÇÃO DE IMAGEM CLOUDINARY ───────────────────────────────────────────
+// Injeta f_auto,q_auto (e um cap de largura) logo após /upload/ em URLs Cloudinary.
+// Reduz PNGs de MBs para dezenas de KB sem perda visível. URLs não-Cloudinary
+// (Shopify CDN, etc.) e URLs já transformadas passam intactas.
+export function cld(url, width = 1000) {
+  if (!url || !url.includes('res.cloudinary.com') || !url.includes('/upload/')) return url;
+  // já tem transformação logo após /upload/ (ex: f_auto, w_, c_) → não duplica
+  if (/\/upload\/[^/]*(f_auto|q_auto|w_\d|c_)/.test(url)) return url;
+  return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
+}
+
 // ─── PRODUCT IMAGE ─────────────────────────────────────────────────────────────
 
 export function ProductImage({ product, variantImageUrl, className = '', onClick }) {
-  const src = variantImageUrl || product?.variants?.[0]?.imageUrl || product?.imageUrl || product?.images?.[0] || '';
+  const raw = variantImageUrl || product?.variants?.[0]?.imageUrl || product?.imageUrl || product?.images?.[0] || '';
+  const src = cld(raw, 900);
 
   if (src) {
     return (
       <div className={`overflow-hidden ${className}`} onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }}>
-        <img src={src} alt={product?.name || ''} className="w-full h-full object-cover" />
+        <img src={src} alt={product?.name || ''} loading="lazy" className="w-full h-full object-cover" />
       </div>
     );
   }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Check, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
-import { ProductImage, Badge, PriceDisplay, FLAGS } from '../components/shared';
+import { ProductImage, Badge, PriceDisplay, FLAGS, cld } from '../components/shared';
 import { trackEvent } from '../tracking';
 
 const COUNTRY_LABELS = {
@@ -74,7 +74,7 @@ export default function HomePage({ products, config, onNavigate }) {
       <section
         className="relative min-h-[100svh] flex flex-col justify-end overflow-hidden"
         style={hero.backgroundImage
-          ? { backgroundImage: `url(${hero.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center top' }
+          ? { backgroundImage: `url(${cld(hero.backgroundImage, 1600)})`, backgroundSize: 'cover', backgroundPosition: 'center top' }
           : { background: '#0a0a0a' }}>
 
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
@@ -473,7 +473,7 @@ function BundlesStrip({ onNavigate }) {
               onClick={() => onNavigate('shop')}
               className="snap-start flex-shrink-0 w-[78%] sm:w-[calc(33.333%-0.7rem)] text-left border border-gray-800 hover:border-amber-500 bg-gray-950 transition-colors group overflow-hidden">
               <div className="relative aspect-square overflow-hidden bg-gray-900">
-                <img src={b.image} alt={`${b.name} bundle`} loading="lazy"
+                <img src={cld(b.image, 700)} alt={`${b.name} bundle`} loading="lazy"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 {b.label && (
                   <span className="absolute top-3 left-3 bg-amber-500 text-black text-[10px] font-black px-2.5 py-1 tracking-[0.1em] uppercase">
