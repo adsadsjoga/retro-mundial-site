@@ -179,7 +179,7 @@ export default function App() {
       {popupOpen && <EmailPopup config={activeConfig} onClose={() => setPopupOpen(false)} />}
       {cartOpen && (
         <Cart items={cart} config={activeConfig} onClose={() => setCartOpen(false)}
-          onUpdate={updateCart} onRemove={removeFromCart} />
+          onUpdate={updateCart} onRemove={removeFromCart} onAddToCart={addToCart} />
       )}
       {adminOpen && (
         <AdminPanel config={activeConfig} setConfig={setConfig} resetConfig={resetConfig} onClose={() => setAdminOpen(false)} products={products} />
@@ -191,7 +191,7 @@ export default function App() {
         onNavigate={navigate}
         currentPage={page}
         onAdminClick={() => setAdminOpen(true)}
-        announcementText={config.site.announcementBar}
+        announcementText="⚡ Founding Drop · First 50 tees at €24.99 · Limited time only → Shop Now"
         logoUrl={config.site.logoUrl}
         logoSubtitle={config.site.logoSubtitle}
       />

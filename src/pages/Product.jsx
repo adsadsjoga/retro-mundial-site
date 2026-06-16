@@ -201,12 +201,22 @@ export default function ProductPage({ product, config, onNavigate, onAddToCart }
               {product.copy?.subtitle || 'Limited edition · 500 units'}
             </p>
 
-            {/* Marca nova: sem reviews reais ainda — não exibir prova social falsa.
-                Em vez de estrelas inventadas, comunicar exclusividade honesta. */}
+            {/* Urgência: Founding Drop para produtos com desconto, caso contrário edição limitada */}
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-amber-400 text-xs font-bold uppercase tracking-wide">
-                New drop · Limited to 500 units per design
-              </span>
+              {product.compareAtPrice && product.compareAtPrice > product.price ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="bg-amber-500 text-black text-xs font-black px-2 py-1 rounded-sm uppercase tracking-wide animate-pulse">
+                    ⚡ Founding price
+                  </span>
+                  <span className="text-amber-400 text-xs font-bold uppercase tracking-wide">
+                    First 50 units only · Price goes up after
+                  </span>
+                </div>
+              ) : (
+                <span className="text-amber-400 text-xs font-bold uppercase tracking-wide">
+                  Limited edition · 500 units per design
+                </span>
+              )}
             </div>
 
             <div className="mb-4">

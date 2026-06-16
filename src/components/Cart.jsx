@@ -6,7 +6,7 @@ import { trackEvent } from '../tracking';
 
 const SUPPORT_EMAIL = 'adsadsjoga@gmail.com';
 
-export default function Cart({ items, config, onClose, onUpdate, onRemove }) {
+export default function Cart({ items, config, onClose, onUpdate, onRemove, onAddToCart }) {
   const [coupon, setCoupon] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponMsg, setCouponMsg] = useState('');
@@ -105,6 +105,24 @@ export default function Cart({ items, config, onClose, onUpdate, onRemove }) {
         ) : (
           <div className="px-6 py-2 bg-green-900/30 text-green-400 text-sm flex items-center gap-2">
             <Truck size={14} /> Free shipping unlocked!
+          </div>
+        )}
+
+        {/* Upsell: Tote Bag add-on — mostra se não há tote no carrinho */}
+        {items.length > 0 && !items.some(i => (i.name || '').toLowerCase().includes('tote')) && (
+          <div className="mx-6 my-2 border border-amber-500/40 bg-amber-500/5 rounded-sm p-3 flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-black uppercase tracking-wide text-amber-400">Add a Tote Bag</p>
+              <p className="text-gray-400 text-xs mt-0.5">Complete the look — only €22.00</p>
+            </div>
+            <button
+              onClick={() => {
+                const tote = config.products?.find(p => (p.name || '').toLowerCase().includes('tote') && p.active);
+                if (tote && onAddToCart) onAddToCart(tote, tote.variants?.[0], 'One Size', 1);
+              }}
+              className="bg-amber-500 text-black text-xs font-black px-3 py-1.5 rounded-sm hover:bg-amber-400 transition-colors whitespace-nowrap flex-shrink-0">
+              + Add
+            </button>
           </div>
         )}
 
