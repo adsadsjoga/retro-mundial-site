@@ -317,19 +317,16 @@ export default function HomePage({ products, config, onNavigate }) {
         </div>
       </section>
 
-      {/* ─── FOUNDING DROP ────────────────────────────────────────────────── */}
-      {/* Reviews falsos removidos (2026-06-16). Substituir por reviews REAIS
-          após as primeiras vendas da Founding 50 — ver [[Founding 50 Campaign]]. */}
+      {/* ─── FREE SHIPPING + BUNDLES ──────────────────────────────────────── */}
       <section className="bg-gray-950 py-20 px-5 sm:px-10 border-t border-gray-900">
         <div className="max-w-3xl mx-auto text-center reveal">
-          <p className="text-amber-500 text-[10px] font-black tracking-[0.3em] uppercase mb-3">The Founding Drop</p>
+          <p className="text-amber-500 text-[10px] font-black tracking-[0.3em] uppercase mb-3">Build Your Kit</p>
           <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight mb-4">
-            Be one of the first 50
+            Free shipping on every bundle
           </h2>
           <p className="text-gray-400 text-sm sm:text-base leading-relaxed max-w-xl mx-auto">
-            Retro Mundial is just getting started. The first 50 founding tees go out before the
-            price returns to full. No fake reviews, no inflated ratings — just an independent
-            football brand and the people who got in early.
+            Pair your favourite tee with a tote, or pick two designs at once — every bundle ships
+            free across Europe. An independent football brand, built piece by piece.
           </p>
         </div>
       </section>

@@ -191,7 +191,7 @@ export default function App() {
         onNavigate={navigate}
         currentPage={page}
         onAdminClick={() => setAdminOpen(true)}
-        announcementText="⚡ Founding Drop · First 50 tees at €24.99 · Limited time only → Shop Now"
+        announcementText="🚚 Free shipping across Europe on Bundles · Build Your Kit and save"
         logoUrl={config.site.logoUrl}
         logoSubtitle={config.site.logoSubtitle}
       />
