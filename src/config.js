@@ -6,7 +6,7 @@ export const DEFAULT_CONFIG = {
   adminPassword: 'retro2026',
 
   site: {
-    announcementBar: '🏆 FREE SHIPPING OVER €50 · USE RETRO15 FOR 15% OFF YOUR FIRST ORDER',
+    announcementBar: '🚚 Free shipping across Europe on Bundles · Build Your Kit and save',
     popupDelaySecs: 9,
     freeShippingThreshold: 50,
     logoUrl: '',        // URL da imagem do logo (vazio = usa texto)
@@ -42,7 +42,7 @@ export const DEFAULT_CONFIG = {
   ],
 
   discounts: [
-    { code: 'RETRO15', percent: 15, label: '15% off first order', active: true },
+    { code: 'RETRO15', percent: 15, label: '15% off first order', active: false },
   ],
 
   // ─── HOMEPAGE — secções editáveis pelo Admin (aba "Aparência do Site") ───

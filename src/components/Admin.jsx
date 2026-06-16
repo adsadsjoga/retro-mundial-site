@@ -1697,10 +1697,11 @@ const COMPANY_CONTEXT = `
 Empresa: Retro Mundial
 Produto: Camisetas oversized premium com temática de Copa do Mundo. Também bolsas retro.
 Público-alvo: Homens e mulheres de 25-45 anos, fãs de futebol e colecionadores.
-Preço: €36.99 por camiseta. Edição limitada de 500 unidades por design.
+Preço: €39.99 por camiseta. Edição limitada de 500 unidades por design.
 Produtos: Brazil 2026, Argentina Legacy, Germany Precision, England Tradition, France Elegance, Spain Passion.
 Tom de voz: Premium, apaixonado, inclusivo e narrativo (storytelling). Tagline: "Moments That Matter".
-Cupons: RETRO15 (15% primeira compra), AGORA10 (10% carrinho abandonado), VOLTAAQUI20 (20% recompra).
+Estratégia atual: frete grátis na Europa + combos automáticos no carrinho (sem cupões percentuais).
+Combos: Tee + Tote €54.99 (poupa €9.99), Double Drop 2 Tees €74.99 (poupa €4.99), Collector Kit 2 Tees + Tote €89.99 (poupa €14.99).
 Site: retromundial.com
 `.trim();
 

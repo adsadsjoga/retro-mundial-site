@@ -393,6 +393,7 @@ const BUNDLES = [
     price: 54.99,
     compareAt: 64.98,
     save: 9.99,
+    image: 'https://res.cloudinary.com/dsyupplhx/image/upload/v1781647113/bundle_tee_tote.png',
   },
   {
     id: 'double',
@@ -404,6 +405,7 @@ const BUNDLES = [
     price: 74.99,
     compareAt: 79.98,
     save: 4.99,
+    image: 'https://res.cloudinary.com/dsyupplhx/image/upload/v1781647089/bundle_double_drop.png',
   },
   {
     id: 'collector',
@@ -415,6 +417,7 @@ const BUNDLES = [
     price: 89.99,
     compareAt: 104.97,
     save: 14.99,
+    image: 'https://res.cloudinary.com/dsyupplhx/image/upload/v1781647101/bundle_collector_kit.png',
   },
 ];
 
@@ -468,23 +471,26 @@ function BundlesStrip({ onNavigate }) {
             <button
               key={b.id}
               onClick={() => onNavigate('shop')}
-              className="snap-start flex-shrink-0 w-[78%] sm:w-[calc(33.333%-0.7rem)] text-left border border-gray-800 hover:border-amber-500 bg-gray-950 transition-colors group">
-              <div className="p-5 flex flex-col h-full">
+              className="snap-start flex-shrink-0 w-[78%] sm:w-[calc(33.333%-0.7rem)] text-left border border-gray-800 hover:border-amber-500 bg-gray-950 transition-colors group overflow-hidden">
+              <div className="relative aspect-square overflow-hidden bg-gray-900">
+                <img src={b.image} alt={`${b.name} bundle`} loading="lazy"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 {b.label && (
-                  <span className="self-start mb-3 bg-amber-500 text-black text-[10px] font-black px-2.5 py-1 tracking-[0.1em] uppercase">
+                  <span className="absolute top-3 left-3 bg-amber-500 text-black text-[10px] font-black px-2.5 py-1 tracking-[0.1em] uppercase">
                     {b.label}
                   </span>
                 )}
+                <span className="absolute top-3 right-3 bg-black/80 text-amber-400 text-[11px] font-black px-2.5 py-1 tracking-[0.05em] uppercase">
+                  Save €{b.save.toFixed(2)}
+                </span>
+              </div>
+              <div className="p-5 flex flex-col h-full">
                 <h3 className="font-black text-lg uppercase tracking-tight leading-tight">{b.name}</h3>
                 <p className="text-gray-500 text-xs font-bold uppercase tracking-wide mb-3">{b.sub}</p>
 
                 <div className="flex items-center gap-2 mb-4 text-gray-500 text-xs">
                   <span>{b.items}</span>
                 </div>
-
-                <span className="self-start mb-3 bg-amber-500/10 text-amber-400 text-[11px] font-black px-2.5 py-1 tracking-[0.05em] uppercase">
-                  Save €{b.save.toFixed(2)}
-                </span>
 
                 <p className="text-gray-500 text-xs leading-relaxed mb-5 flex-grow">{b.desc}</p>
 
