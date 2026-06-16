@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Check, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
-import { ProductImage, Badge, PriceDisplay, Stars, FLAGS } from '../components/shared';
+import { ProductImage, Badge, PriceDisplay, FLAGS } from '../components/shared';
 import { trackEvent } from '../tracking';
 
 const COUNTRY_LABELS = {
@@ -11,12 +11,6 @@ const COUNTRY_LABELS = {
   France:    { pt: 'France',    en: 'FRANCE'     },
   Spain:     { pt: 'Spain',     en: 'SPAIN'      },
 };
-
-const REVIEWS = [
-  { text: 'Arrived in 4 days, beautifully packaged, fabric way better than expected. The Brazil one is perfect — wore it to a match and got non-stop questions about it.', name: 'Lucas M.', location: 'Lisbon', flag: '🇵🇹', rating: 5 },
-  { text: 'Bought the Argentina for my dad. He\'s been obsessed since \'86. Literally speechless. Worth every cent — it genuinely feels like a collector\'s piece.', name: 'Ana C.', location: 'Porto', flag: '🇵🇹', rating: 5 },
-  { text: 'Got three now — Brazil, Germany, France. The oversized fit is exactly what it looks like in the photos. Not that fake-oversized you get everywhere else.', name: 'Marco F.', location: 'Madrid', flag: '🇪🇸', rating: 5 },
-];
 
 // resolve destino de um link: page id interno ou URL externa
 function handleTarget(target, product, onNavigate) {
@@ -306,7 +300,7 @@ export default function HomePage({ products, config, onNavigate }) {
           <p className="text-gray-500 text-sm leading-relaxed mb-10 max-w-sm">{story.text2}</p>
 
           <div className="grid grid-cols-3 gap-3 mb-10">
-            {[['500', 'per design'], ['100%', 'organic'], ['30 days', 'guarantee']].map(([n, l]) => (
+            {[['500', 'per design'], ['EU', 'printed'], ['30 days', 'returns']].map(([n, l]) => (
               <div key={l} className="border border-gray-800 p-3 sm:p-4 text-center">
                 <div className="text-lg sm:text-2xl font-black text-amber-500">{n}</div>
                 <div className="text-[10px] text-gray-600 mt-1 uppercase tracking-wide">{l}</div>
@@ -323,29 +317,20 @@ export default function HomePage({ products, config, onNavigate }) {
         </div>
       </section>
 
-      {/* ─── REVIEWS ──────────────────────────────────────────────────────── */}
-      <section className="bg-gray-950 py-20 px-5 sm:px-10">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-12 reveal">
-            <p className="text-amber-500 text-[10px] font-black tracking-[0.3em] uppercase mb-2">4.9 ★ · +274 reviews</p>
-            <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight">What our customers say</h2>
-          </div>
-          <div className="grid sm:grid-cols-3 gap-4 sm:gap-5">
-            {REVIEWS.map((r, i) => (
-              <div key={i} className="border border-gray-800 p-6 sm:p-7 reveal" style={{ transitionDelay: `${i * 80}ms` }}>
-                <Stars rating={r.rating} />
-                <p className="text-gray-300 text-sm leading-relaxed mt-4 mb-5">"{r.text}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-gray-800 flex items-center justify-center font-black text-sm text-white flex-shrink-0">{r.name[0]}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold truncate">{r.name} {r.flag}</div>
-                    <div className="text-[10px] text-gray-600">{r.location}</div>
-                  </div>
-                  <span className="text-[9px] font-black text-amber-500 border border-amber-500/30 px-2 py-1 uppercase tracking-wide flex-shrink-0">Verified</span>
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* ─── FOUNDING DROP ────────────────────────────────────────────────── */}
+      {/* Reviews falsos removidos (2026-06-16). Substituir por reviews REAIS
+          após as primeiras vendas da Founding 50 — ver [[Founding 50 Campaign]]. */}
+      <section className="bg-gray-950 py-20 px-5 sm:px-10 border-t border-gray-900">
+        <div className="max-w-3xl mx-auto text-center reveal">
+          <p className="text-amber-500 text-[10px] font-black tracking-[0.3em] uppercase mb-3">The Founding Drop</p>
+          <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight mb-4">
+            Be one of the first 50
+          </h2>
+          <p className="text-gray-400 text-sm sm:text-base leading-relaxed max-w-xl mx-auto">
+            Retro Mundial is just getting started. The first 50 founding tees go out before the
+            price returns to full. No fake reviews, no inflated ratings — just an independent
+            football brand and the people who got in early.
+          </p>
         </div>
       </section>
 
@@ -395,7 +380,7 @@ export default function HomePage({ products, config, onNavigate }) {
         <div className="max-w-7xl mx-auto">
           <h2 className="text-xs font-black uppercase tracking-[0.3em] text-gray-600 mb-6">Retro Mundial — Retro Football Shirts</h2>
           <div className="grid sm:grid-cols-3 gap-8 text-xs text-gray-700 leading-relaxed">
-            <p>Retro Mundial creates premium oversized shirts inspired by the greatest moments in World Cup history — Brazil, Argentina, Germany, England, France and Spain. Each design celebrates a golden generation of world football using 100% GOTS-certified organic cotton.</p>
+            <p>Retro Mundial creates premium oversized shirts inspired by the greatest moments in football history — Brazil, Argentina, Germany, England, France and Spain. Each design celebrates a golden generation of world football, printed on demand in Europe on soft, premium-weight fabric.</p>
             <p>Each collection is limited to 500 units. No restocks, no second run. Made for collectors, football fans and anyone who wants streetwear with a story. Shipping across Europe. Free delivery on orders over €50.</p>
             <p>World Cup 2026 retro shirt · Brazil retro football shirt · Argentina retro shirt · Premium football streetwear · Oversized football shirt · Heritage football apparel · Limited edition football shirts.</p>
           </div>
@@ -566,10 +551,6 @@ function ProductCard({ product, onNavigate }) {
             {product.name}
           </h3>
           <PriceDisplay price={product.price} compareAtPrice={product.compareAtPrice} size="sm" />
-        </div>
-        <div className="flex items-center gap-2 mt-1">
-          <Stars rating={4.9} />
-          <span className="text-gray-600 text-[10px]">(4.9)</span>
         </div>
       </div>
     </div>

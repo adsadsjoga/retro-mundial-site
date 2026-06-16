@@ -251,6 +251,26 @@ function ProductsTab({ config, setConfig, mergedProducts }) {
                     </div>
                   </div>
 
+                  {/* Preços */}
+                  <div>
+                    <h4 className="font-black text-sm uppercase tracking-wide mb-3 text-amber-500">Preços</h4>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <Field label="Preço de venda (€)">
+                        <input type="number" step="0.01" min="0"
+                          value={localP?.price ?? ''}
+                          onChange={e => updateProduct(localId, 'price', parseFloat(e.target.value) || 0)}
+                          className={iCls} placeholder="24.99" />
+                      </Field>
+                      <Field label="Preço riscado / Compare at (€)">
+                        <input type="number" step="0.01" min="0"
+                          value={localP?.compareAtPrice ?? ''}
+                          onChange={e => updateProduct(localId, 'compareAtPrice', parseFloat(e.target.value) || null)}
+                          className={iCls} placeholder="39.99 (deixa vazio para não mostrar)" />
+                      </Field>
+                    </div>
+                    <p className="text-gray-500 text-xs mt-1">O preço riscado aparece em vermelho como desconto. Deixa vazio para não mostrar.</p>
+                  </div>
+
                   {/* Galeria — até 4 fotos + 1 vídeo */}
                   <div>
                     <h4 className="font-black text-sm uppercase tracking-wide mb-1 text-amber-500">Galeria do Produto (até 4 fotos)</h4>

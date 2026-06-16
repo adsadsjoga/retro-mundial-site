@@ -22,7 +22,7 @@ export default function AboutPage({ onNavigate }) {
           WHO<br /><span className="text-amber-500">WE ARE</span>
         </h1>
         <p className="text-gray-300 text-lg sm:text-xl max-w-2xl mx-auto font-light leading-relaxed">
-          Born from a love of football and the culture it built across decades of World Cups. We preserve historic moments in premium organic cotton.
+          Born from a love of football and the culture it built across decades of World Cups. We preserve historic moments on premium-weight fabric, printed on demand in Europe.
         </p>
       </section>
 
@@ -38,12 +38,12 @@ export default function AboutPage({ onNavigate }) {
               Every piece in the Retro Mundial archive is a portal to the greatest moments in World Cup history. We don't make sportswear — we preserve culture.
             </p>
             <p className="text-gray-400 leading-relaxed mb-6">
-              We use 100% GOTS-certified organic cotton, produced traceably and sustainably. Each design is limited to 500 units — when it's gone, it's gone for good.
+              We print on soft, premium-weight fabric, on demand in Europe — no overproduction, no waste. Each design is limited to 500 units — when it's gone, it's gone for good.
             </p>
             <div className="space-y-3">
               {[
-                '100% GOTS-certified organic cotton',
-                'Traceable and sustainable production',
+                'Soft premium-weight fabric',
+                'Printed on demand in Europe — no waste',
                 'Limited editions of 500 units per design',
                 'Free returns within 30 days',
                 'Shipping across Europe',
@@ -61,13 +61,13 @@ export default function AboutPage({ onNavigate }) {
           <div className="scroll-reveal grid grid-cols-3 gap-1">
             {[
               { n: '500', l: 'Units\nPer Design' },
-              { n: '100%', l: 'Organic\nCotton' },
+              { n: 'EU', l: 'Printed\nOn Demand' },
               { n: '6', l: 'Historic\nNations' },
               { n: '30', l: 'Days\nReturns' },
-              { n: 'GOTS', l: 'Organic\nCertified' },
-              { n: '0', l: 'Restocks\nEver' },
-            ].map(({ n, l }) => (
-              <div key={n} className="border border-gray-800 p-4 text-center rounded-sm">
+              { n: '0', l: 'Waste\nOverproduction' },
+              { n: 'Never', l: 'Restocks\nEver' },
+            ].map(({ n, l }, i) => (
+              <div key={i} className="border border-gray-800 p-4 text-center rounded-sm">
                 <div className="text-xl sm:text-2xl font-black text-amber-500">{n}</div>
                 <div className="text-xs text-gray-500 mt-1 leading-tight whitespace-pre-line">{l}</div>
               </div>
@@ -115,7 +115,7 @@ export default function AboutPage({ onNavigate }) {
             {
               icon: '🌿',
               title: 'Sustainability',
-              desc: 'Every material is traceable. GOTS-certified organic cotton, responsible production, recyclable packaging.',
+              desc: 'Printed on demand in Europe — we only make what gets ordered. No overproduction, no dead stock, less waste.',
             },
             {
               icon: '🏆',

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { ExternalLink } from 'lucide-react';
-import { ProductImage, Badge, PriceDisplay, Stars } from '../components/shared';
+import { ProductImage, Badge, PriceDisplay } from '../components/shared';
 
 const DEFAULT_FILTERS = ['All', 'Brazil', 'Argentina', 'England', 'France', 'Spain', 'Germany'];
 
@@ -145,7 +145,6 @@ function ProductCard({ product, onNavigate }) {
           </h3>
           <PriceDisplay price={product.price} compareAtPrice={product.compareAtPrice} size="sm" />
         </div>
-        <Stars rating={4.9} />
         <p className="text-gray-500 text-xs mt-1 mb-3 line-clamp-2">
           {product.copy?.subtitle || product.desc || ''}
         </p>

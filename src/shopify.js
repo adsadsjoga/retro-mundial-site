@@ -284,6 +284,10 @@ export function mergeWithLocalConfig(shopifyProducts, localProducts) {
       copy: local?.copy || {},
       coverImageUrl: local?.coverImageUrl || '',
       videoUrl: local?.videoUrl || '',
+      // preço: Shopify tem prioridade; config local serve de fallback (ex: produtos não sincronizados)
+      price: shopify.price || local?.price || 0,
+      // compareAtPrice: Shopify tem prioridade; se não tiver, usa o config (permite definir promoção sem tocar no Shopify)
+      compareAtPrice: shopify.compareAtPrice || local?.compareAtPrice || null,
       sizes: shopify.sizes || local?.sizes || ['S', 'M', 'L', 'XL', '2XL'],
       variantsByColorSize: shopify.variantsByColorSize || {},
       variants: shopify.variants.map(sv => {
