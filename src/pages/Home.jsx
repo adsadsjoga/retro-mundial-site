@@ -134,6 +134,9 @@ export default function HomePage({ products, config, onNavigate }) {
         </div>
       </div>
 
+      {/* ─── BUNDLES (Build Your Kit) ──────────────────────────────────────── */}
+      <BundlesStrip onNavigate={onNavigate} />
+
       {/* ─── ESCOLHE O TEU PAÍS ───────────────────────────────────────────── */}
       <section className="bg-black py-14 px-5 sm:px-10">
         <div className="max-w-7xl mx-auto">
@@ -317,20 +320,6 @@ export default function HomePage({ products, config, onNavigate }) {
         </div>
       </section>
 
-      {/* ─── FREE SHIPPING + BUNDLES ──────────────────────────────────────── */}
-      <section className="bg-gray-950 py-20 px-5 sm:px-10 border-t border-gray-900">
-        <div className="max-w-3xl mx-auto text-center reveal">
-          <p className="text-amber-500 text-[10px] font-black tracking-[0.3em] uppercase mb-3">Build Your Kit</p>
-          <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight mb-4">
-            Free shipping on every bundle
-          </h2>
-          <p className="text-gray-400 text-sm sm:text-base leading-relaxed max-w-xl mx-auto">
-            Pair your favourite tee with a tote, or pick two designs at once — every bundle ships
-            free across Europe. An independent football brand, built piece by piece.
-          </p>
-        </div>
-      </section>
-
       {/* ─── NEWSLETTER ───────────────────────────────────────────────────── */}
       <section className="relative bg-amber-500 py-20 sm:py-24 px-5 overflow-hidden">
         <div className="absolute inset-0 opacity-[0.04]"
@@ -385,6 +374,144 @@ export default function HomePage({ products, config, onNavigate }) {
       </section>
 
     </div>
+  );
+}
+
+// ─── BUNDLES STRIP (Build Your Kit) ────────────────────────────────────────────
+// Mostra os 3 combos automáticos do carrinho (ver Cart.jsx detectCombo). Valores
+// fixos — refletem os códigos de desconto reais no Shopify (KIT-TEETOTE/DOUBLE/COLLECTOR).
+// Tee €39.99 · Tote €24.99.
+
+const BUNDLES = [
+  {
+    id: 'teetote',
+    label: 'BEST VALUE',
+    name: 'Tee + Tote',
+    sub: 'Bundle',
+    desc: 'Choose any t-shirt and any tote bag',
+    items: '1 tee + 1 tote',
+    price: 54.99,
+    compareAt: 64.98,
+    save: 9.99,
+  },
+  {
+    id: 'double',
+    label: null,
+    name: 'Double Drop',
+    sub: '(2 tees)',
+    desc: 'Pick any 2 t-shirts and save more',
+    items: '2 tees',
+    price: 74.99,
+    compareAt: 79.98,
+    save: 4.99,
+  },
+  {
+    id: 'collector',
+    label: 'ULTIMATE',
+    name: 'Collector Kit',
+    sub: '(2 tees + tote)',
+    desc: 'The ultimate combo for true collectors',
+    items: '2 tees + 1 tote',
+    price: 89.99,
+    compareAt: 104.97,
+    save: 14.99,
+  },
+];
+
+function BundlesStrip({ onNavigate }) {
+  const scroller = useRef(null);
+  const [progress, setProgress] = useState(0);
+  const [canScroll, setCanScroll] = useState(false);
+
+  function update() {
+    const el = scroller.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setCanScroll(max > 4);
+    setProgress(max > 0 ? el.scrollLeft / max : 0);
+  }
+
+  useEffect(() => {
+    update();
+    const el = scroller.current;
+    if (!el) return;
+    el.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => { el.removeEventListener('scroll', update); window.removeEventListener('resize', update); };
+  }, []);
+
+  function onTrackClick(e) {
+    const el = scroller.current;
+    const track = e.currentTarget;
+    if (!el) return;
+    const rect = track.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    const max = el.scrollWidth - el.clientWidth;
+    el.scrollTo({ left: ratio * max, behavior: 'smooth' });
+  }
+
+  return (
+    <section className="bg-black pt-10 sm:pt-14 px-5 sm:px-10">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-end justify-between mb-5 reveal">
+          <div>
+            <p className="text-amber-500 text-[10px] font-black tracking-[0.3em] uppercase mb-1">Free EU Shipping</p>
+            <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">Build your kit</h2>
+          </div>
+          {canScroll && <span className="text-gray-600 text-xs hidden sm:block">scroll →</span>}
+        </div>
+
+        <div
+          ref={scroller}
+          className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-none snap-x snap-mandatory -mx-5 px-5 sm:mx-0 sm:px-0 pb-1">
+          {BUNDLES.map(b => (
+            <button
+              key={b.id}
+              onClick={() => onNavigate('shop')}
+              className="snap-start flex-shrink-0 w-[78%] sm:w-[calc(33.333%-0.7rem)] text-left border border-gray-800 hover:border-amber-500 bg-gray-950 transition-colors group">
+              <div className="p-5 flex flex-col h-full">
+                {b.label && (
+                  <span className="self-start mb-3 bg-amber-500 text-black text-[10px] font-black px-2.5 py-1 tracking-[0.1em] uppercase">
+                    {b.label}
+                  </span>
+                )}
+                <h3 className="font-black text-lg uppercase tracking-tight leading-tight">{b.name}</h3>
+                <p className="text-gray-500 text-xs font-bold uppercase tracking-wide mb-3">{b.sub}</p>
+
+                <div className="flex items-center gap-2 mb-4 text-gray-500 text-xs">
+                  <span>{b.items}</span>
+                </div>
+
+                <span className="self-start mb-3 bg-amber-500/10 text-amber-400 text-[11px] font-black px-2.5 py-1 tracking-[0.05em] uppercase">
+                  Save €{b.save.toFixed(2)}
+                </span>
+
+                <p className="text-gray-500 text-xs leading-relaxed mb-5 flex-grow">{b.desc}</p>
+
+                <div className="flex items-baseline gap-2 mb-1">
+                  <span className="text-2xl font-black">€{b.price.toFixed(2)}</span>
+                  <span className="text-gray-600 line-through text-sm">€{b.compareAt.toFixed(2)}</span>
+                </div>
+                <span className="inline-flex items-center gap-1.5 text-amber-500 text-[11px] font-black uppercase tracking-wide group-hover:gap-2.5 transition-all">
+                  Build this kit <ArrowRight size={12} />
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {canScroll && (
+          <div className="mt-4 px-1">
+            <div onClick={onTrackClick} className="relative h-1 bg-gray-800 cursor-pointer rounded-full">
+              <div
+                className="absolute top-0 left-0 h-full bg-amber-500 rounded-full transition-[width] duration-150"
+                style={{ width: `${Math.max(15, progress * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
