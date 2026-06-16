@@ -178,7 +178,7 @@ export default function App() {
       {/* Overlays */}
       {popupOpen && <EmailPopup config={activeConfig} onClose={() => setPopupOpen(false)} />}
       {cartOpen && (
-        <Cart items={cart} config={activeConfig} onClose={() => setCartOpen(false)}
+        <Cart items={cart} config={activeConfig} products={products} onClose={() => setCartOpen(false)}
           onUpdate={updateCart} onRemove={removeFromCart} onAddToCart={addToCart} />
       )}
       {adminOpen && (

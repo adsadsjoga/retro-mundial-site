@@ -1,12 +1,48 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Minus, ShoppingCart, Truck, Shield, RotateCcw, ExternalLink, AlertCircle } from 'lucide-react';
+import { X, Plus, Minus, ShoppingCart, Truck, Shield, RotateCcw, ExternalLink, AlertCircle, Check } from 'lucide-react';
 import { ProductImage } from './shared';
 import { checkoutCart } from '../shopify';
 import { trackEvent } from '../tracking';
 
 const SUPPORT_EMAIL = 'adsadsjoga@gmail.com';
 
-export default function Cart({ items, config, onClose, onUpdate, onRemove, onAddToCart }) {
+// ─── COMBOS AUTOMÁTICOS ───────────────────────────────────────────────────────
+// O carrinho deteta automaticamente quando o cliente montou um combo (juntando
+// tees e totes individuais) e aplica o código de desconto correspondente — que
+// existe no Shopify e desconta de facto no checkout. Sempre o melhor combo presente.
+// Valores baseados em: Tee €39.99 · Tote €24.99 (preço Shopify real)
+//   Tee + Tote      €64.98 → €54.99  (−€9.99)
+//   Double Drop     €79.98 → €74.99  (−€4.99)  (2 tees)
+//   Collector Kit  €104.97 → €89.99  (−€14.99) (2 tees + tote)
+const COMBOS = {
+  collector: { code: 'KIT-COLLECTOR', amount: 14.99, label: 'Collector Kit' },
+  double:    { code: 'KIT-DOUBLE',    amount: 4.99,  label: 'Double Drop' },
+  teetote:   { code: 'KIT-TEETOTE',   amount: 9.99,  label: 'Tee + Tote Kit' },
+};
+
+function classifyItem(item) {
+  const name = (item.name || '').toLowerCase();
+  if (name.includes('tote')) return 'tote';
+  if (name.includes('hoodie')) return 'hoodie';
+  if (item.isBundle) return 'bundle';
+  if (item.country) return 'tee';
+  return 'other';
+}
+
+function detectCombo(items) {
+  let tees = 0, totes = 0;
+  items.forEach(i => {
+    const c = classifyItem(i);
+    if (c === 'tee') tees += i.qty;
+    if (c === 'tote') totes += i.qty;
+  });
+  if (tees >= 2 && totes >= 1) return COMBOS.collector;
+  if (tees >= 2) return COMBOS.double;
+  if (tees >= 1 && totes >= 1) return COMBOS.teetote;
+  return null;
+}
+
+export default function Cart({ items, config, products, onClose, onUpdate, onRemove, onAddToCart }) {
   const [coupon, setCoupon] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponMsg, setCouponMsg] = useState('');
@@ -15,9 +51,25 @@ export default function Cart({ items, config, onClose, onUpdate, onRemove, onAdd
 
   const freeShip = config.site?.freeShippingThreshold || 50;
   const subtotal = items.reduce((s, i) => s + (i.salePrice || i.price) * i.qty, 0);
-  const discount = appliedCoupon ? subtotal * (appliedCoupon.percent / 100) : 0;
+  // Combo automático tem prioridade sobre cupão manual (evita acumular descontos)
+  const combo = detectCombo(items);
+  const couponDiscount = appliedCoupon ? subtotal * (appliedCoupon.percent / 100) : 0;
+  const discount = combo ? combo.amount : couponDiscount;
   const shipping = subtotal - discount >= freeShip ? 0 : 4.99;
   const total = subtotal - discount + shipping;
+
+  // Upsell de tote: só mostra se existir um tote comprável (com variante Shopify) e
+  // ainda não houver tote no carrinho. Evita botão "morto" quando nenhum tote está linkado.
+  const cartHasTote = items.some(i => (i.name || '').toLowerCase().includes('tote'));
+  // Procura primeiro na lista de produtos REAIS do Shopify (têm shopifyVariantId);
+  // cai para a config local se necessário.
+  const toteSource = (products && products.length ? products : config.products) || [];
+  const upsellTote = !cartHasTote
+    ? toteSource.find(p =>
+        (p.name || '').toLowerCase().includes('tote') &&
+        p.variants?.some(v => v.shopifyVariantId))
+    : null;
+  const upsellVariant = upsellTote?.variants?.find(v => v.shopifyVariantId) || upsellTote?.variants?.[0];
 
   function applyCouponCode() {
     const found = config.discounts?.find(d => d.active && d.code.toUpperCase() === coupon.toUpperCase());
@@ -52,7 +104,9 @@ export default function Cart({ items, config, onClose, onUpdate, onRemove, onAdd
     });
 
     try {
-      const url = await checkoutCart(shopifyDomain, shopifyToken, lines);
+      // Passa o código do combo detetado para o Shopify aplicar o desconto no checkout
+      const discountCodes = combo ? [combo.code] : [];
+      const url = await checkoutCart(shopifyDomain, shopifyToken, lines, discountCodes);
       // Mobile (sobretudo navegadores in-app do Instagram/Facebook) bloqueia ou
       // perde o contexto com window.open(_blank). Navega na mesma aba para garantir
       // que o checkout Shopify carrega. No desktop mantém nova aba (preserva o carrinho).
@@ -108,18 +162,16 @@ export default function Cart({ items, config, onClose, onUpdate, onRemove, onAdd
           </div>
         )}
 
-        {/* Upsell: Tote Bag add-on — mostra se não há tote no carrinho */}
-        {items.length > 0 && !items.some(i => (i.name || '').toLowerCase().includes('tote')) && (
+        {/* Upsell: Tote Bag add-on — só mostra se houver um tote comprável e o cliente
+            tiver ≥1 tee no carrinho (desbloqueia o combo Tee + Tote ou Collector Kit) */}
+        {items.length > 0 && upsellTote && onAddToCart && (
           <div className="mx-6 my-2 border border-amber-500/40 bg-amber-500/5 rounded-sm p-3 flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-xs font-black uppercase tracking-wide text-amber-400">Add a Tote Bag</p>
-              <p className="text-gray-400 text-xs mt-0.5">Complete the look — only €22.00</p>
+              <p className="text-gray-400 text-xs mt-0.5">Complete the kit — €{(upsellTote.price || 22).toFixed(2)}</p>
             </div>
             <button
-              onClick={() => {
-                const tote = config.products?.find(p => (p.name || '').toLowerCase().includes('tote') && p.active);
-                if (tote && onAddToCart) onAddToCart(tote, tote.variants?.[0], 'One Size', 1);
-              }}
+              onClick={() => onAddToCart(upsellTote, upsellVariant, upsellTote.sizes?.[0] || 'One Size', 1)}
               className="bg-amber-500 text-black text-xs font-black px-3 py-1.5 rounded-sm hover:bg-amber-400 transition-colors whitespace-nowrap flex-shrink-0">
               + Add
             </button>
@@ -166,17 +218,30 @@ export default function Cart({ items, config, onClose, onUpdate, onRemove, onAdd
 
         {items.length > 0 && (
           <div className="border-t border-gray-800 p-6 space-y-4">
-            <div className="flex gap-2">
-              <input type="text" value={coupon} onChange={e => setCoupon(e.target.value)}
-                placeholder={config.discounts?.[0]?.code || 'Coupon code'}
-                className="flex-1 bg-black border border-gray-700 focus:border-amber-500 outline-none px-3 py-2 text-sm rounded-sm text-white placeholder-gray-600" />
-              <button onClick={applyCouponCode} className="bg-gray-700 hover:bg-gray-600 px-4 py-2 text-sm font-bold rounded-sm">Apply</button>
-            </div>
-            {couponMsg && <p className={`text-xs ${appliedCoupon ? 'text-green-400' : 'text-red-400'}`}>{couponMsg}</p>}
+            {/* Combo automático aplicado */}
+            {combo && (
+              <div className="flex items-center gap-2 text-green-400 text-xs bg-green-900/20 border border-green-800/50 rounded-sm p-3">
+                <Check size={15} className="flex-shrink-0" />
+                <span><span className="font-black">{combo.label} unlocked</span> — you save €{combo.amount.toFixed(2)} + free EU shipping</span>
+              </div>
+            )}
+
+            {/* Cupão manual — escondido quando há combo (combo tem prioridade) */}
+            {!combo && (
+              <>
+                <div className="flex gap-2">
+                  <input type="text" value={coupon} onChange={e => setCoupon(e.target.value)}
+                    placeholder={config.discounts?.[0]?.code || 'Coupon code'}
+                    className="flex-1 bg-black border border-gray-700 focus:border-amber-500 outline-none px-3 py-2 text-sm rounded-sm text-white placeholder-gray-600" />
+                  <button onClick={applyCouponCode} className="bg-gray-700 hover:bg-gray-600 px-4 py-2 text-sm font-bold rounded-sm">Apply</button>
+                </div>
+                {couponMsg && <p className={`text-xs ${appliedCoupon ? 'text-green-400' : 'text-red-400'}`}>{couponMsg}</p>}
+              </>
+            )}
 
             <div className="space-y-2 text-sm">
               <div className="flex justify-between text-gray-400"><span>Subtotal</span><span>€{subtotal.toFixed(2)}</span></div>
-              {discount > 0 && <div className="flex justify-between text-green-400"><span>Discount</span><span>−€{discount.toFixed(2)}</span></div>}
+              {discount > 0 && <div className="flex justify-between text-green-400"><span>{combo ? combo.label : 'Discount'}</span><span>−€{discount.toFixed(2)}</span></div>}
               <div className="flex justify-between text-gray-400">
                 <span>Shipping</span>
                 <span>{shipping === 0 ? <span className="text-green-400">FREE</span> : `€${shipping.toFixed(2)}`}</span>

@@ -119,8 +119,8 @@ const PRODUCTS_QUERY = `
 `;
 
 const CREATE_CART_MUTATION = `
-  mutation cartCreate($lines: [CartLineInput!]!) {
-    cartCreate(input: { lines: $lines }) {
+  mutation cartCreate($lines: [CartLineInput!]!, $discountCodes: [String!]) {
+    cartCreate(input: { lines: $lines, discountCodes: $discountCodes }) {
       cart {
         id
         checkoutUrl
@@ -239,8 +239,8 @@ export async function fetchShopifyProducts(domain, token) {
 }
 
 // Cria carrinho com um ou mais itens e retorna a URL de checkout
-export async function checkoutCart(domain, token, lines) {
-  const data = await shopifyFetch(domain, token, CREATE_CART_MUTATION, { lines });
+export async function checkoutCart(domain, token, lines, discountCodes = []) {
+  const data = await shopifyFetch(domain, token, CREATE_CART_MUTATION, { lines, discountCodes });
   const { cart, userErrors } = data.cartCreate;
   if (userErrors?.length) throw new Error(userErrors[0].message);
   return cart.checkoutUrl;
