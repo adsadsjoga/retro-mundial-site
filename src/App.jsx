@@ -32,6 +32,8 @@ function useMetaPixel(pixelId) {
 export default function App() {
   const { config, setConfig, setConfigSilent, resetConfig } = useConfig();
   const [products, setProducts] = useState(config.products);
+  const productsRef = useRef(products);
+  productsRef.current = products;
   const [page, setPage] = useState('home');
   const [shopFilter, setShopFilter] = useState(null);
   const shopifyCache = useRef([]);
@@ -117,12 +119,48 @@ export default function App() {
   const activeConfig = { ...config, products };
 
   // ─── NAVEGAÇÃO ───────────────────────────────────────────────────────────────
+  // O site é uma SPA de página única (sem router) — navigate() só fazia setState,
+  // nunca tocava no histórico do browser. Resultado: o botão "voltar" não tinha
+  // nenhuma página interna para onde voltar, e saltava direto para fora do site
+  // (Google, Instagram, etc.). Agora cada navegação empurra uma entrada no
+  // histórico (mesma URL, só muda o state), e ouvimos 'popstate' para repor a
+  // página certa quando o usuário usa voltar/avançar do browser.
+  const restoringHistory = useRef(false);
 
   function navigate(p, product = null, filter = null) {
     setPage(p);
     if (product) setCurrentProduct(product);
     if (filter) setShopFilter(filter);
+
+    if (!restoringHistory.current) {
+      window.history.pushState(
+        { page: p, productId: product?.id ?? null, filter: filter ?? null },
+        '',
+        window.location.pathname
+      );
+    }
   }
+
+  // Seed da primeira entrada do histórico + escuta de voltar/avançar
+  useEffect(() => {
+    window.history.replaceState({ page: 'home', productId: null, filter: null }, '', window.location.pathname);
+
+    function onPopState(e) {
+      const state = e.state || { page: 'home' };
+      restoringHistory.current = true;
+      setPage(state.page || 'home');
+      setShopFilter(state.filter || null);
+      if (state.productId) {
+        const found = productsRef.current.find(p => p.id === state.productId);
+        if (found) setCurrentProduct(found);
+      }
+      restoringHistory.current = false;
+    }
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ─── CARRINHO ────────────────────────────────────────────────────────────────
 
