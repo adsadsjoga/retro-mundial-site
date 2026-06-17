@@ -232,7 +232,12 @@ export async function fetchShopifyProducts(domain, token) {
       variants,
       variantsByColorSize,
       sizes,
-      country: detectCountry(node),
+      // Totes/hoodies/acessórios NUNCA têm país — mesmo que estejam numa coleção
+      // de uma nação (ex: tote da Spain na coleção "España"), detectCountry()
+      // pegaria o país da coleção e o item seria classificado como tee no
+      // carrinho (Cart.jsx classifyItem usa "tem país → é tee"), partindo a
+      // detecção de combos (ex: tote contado como 3ª tee em vez de tote).
+      country: /tote|bag|hoodie/i.test(node.title) ? '' : detectCountry(node),
       _fromShopify: true,
     };
   });
