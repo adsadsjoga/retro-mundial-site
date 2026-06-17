@@ -514,9 +514,16 @@ export function useConfig() {
   });
 
   const saveTimer = useRef();
+  // Fica true na primeira edição do usuário. Depois disso, o fetch remoto
+  // (que corre em paralelo ao carregar a página) NUNCA pode mais sobrescrever
+  // o estado local — senão uma resposta lenta do Supabase chega DEPOIS do
+  // usuário começar a editar e apaga a edição em curso silenciosamente
+  // (ex: usuário corrige o preço do tote, mas o campo "volta" ao valor antigo).
+  const hasUserEditedRef = useRef(false);
 
   // Atualiza estado + localStorage + auto-salva no Supabase (com debounce)
   const setConfig = useCallback((updater) => {
+    hasUserEditedRef.current = true;
     setConfigState(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
@@ -541,7 +548,7 @@ export function useConfig() {
   useEffect(() => {
     let cancelled = false;
     loadRemoteConfig().then(remote => {
-      if (cancelled || !remote) return;
+      if (cancelled || !remote || hasUserEditedRef.current) return;
       const remoteConfig = parseAndMergeConfig(JSON.stringify(remote));
 
       // Preserva media local (imagens/vídeos) que o Supabase pode não ter ainda
