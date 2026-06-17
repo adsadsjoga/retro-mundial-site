@@ -475,12 +475,21 @@ function BundlesStrip({ onNavigate }) {
               <div className="relative aspect-square overflow-hidden bg-gray-900">
                 <img src={cld(b.image, 700)} alt={`${b.name} bundle`} loading="lazy"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+
+                {/* Badge de % real (calculado, nunca inflado) — máximo impacto visual */}
+                <div className="absolute -top-1 -left-1 z-10" style={{ transform: 'rotate(-10deg)' }}>
+                  <div className="bg-red-600 text-white shadow-lg px-3 py-2 border-2 border-white/90">
+                    <div className="text-2xl font-black leading-none">-{Math.round((b.save / b.compareAt) * 100)}%</div>
+                    <div className="text-[8px] font-black uppercase tracking-wide leading-none mt-0.5">off today</div>
+                  </div>
+                </div>
+
                 {b.label && (
-                  <span className="absolute top-3 left-3 bg-amber-500 text-black text-[10px] font-black px-2.5 py-1 tracking-[0.1em] uppercase">
+                  <span className="absolute top-3 right-3 bg-amber-500 text-black text-[10px] font-black px-2.5 py-1 tracking-[0.1em] uppercase">
                     {b.label}
                   </span>
                 )}
-                <span className="absolute top-3 right-3 bg-black/80 text-amber-400 text-[11px] font-black px-2.5 py-1 tracking-[0.05em] uppercase">
+                <span className={`absolute right-3 bg-black/85 text-amber-400 text-[11px] font-black px-2.5 py-1 tracking-[0.05em] uppercase ${b.label ? 'top-10' : 'top-3'}`}>
                   Save €{b.save.toFixed(2)}
                 </span>
               </div>
