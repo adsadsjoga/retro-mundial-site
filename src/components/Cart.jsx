@@ -21,9 +21,13 @@ const COMBOS = {
 };
 
 function classifyItem(item) {
-  const name = (item.name || '').toLowerCase();
-  if (name.includes('tote')) return 'tote';
-  if (name.includes('hoodie')) return 'hoodie';
+  // Não confia só em "name" — se o admin deixar o nome em branco ou mal
+  // configurado, a deteção de combo silenciosamente para de funcionar
+  // (sempre cai em "Double Drop", nunca em Tee+Tote/Collector). Por isso
+  // verifica também handle/shopifyHandle como rede de segurança.
+  const haystack = [item.name, item.handle, item.shopifyHandle].filter(Boolean).join(' ').toLowerCase();
+  if (haystack.includes('tote')) return 'tote';
+  if (haystack.includes('hoodie')) return 'hoodie';
   if (item.isBundle) return 'bundle';
   if (item.country) return 'tee';
   return 'other';
