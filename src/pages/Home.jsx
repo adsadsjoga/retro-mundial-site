@@ -471,7 +471,7 @@ function BundlesStrip({ onNavigate }) {
             <button
               key={b.id}
               onClick={() => onNavigate('shop')}
-              className="snap-start flex-shrink-0 w-[78%] sm:w-[calc(33.333%-0.7rem)] text-left border border-gray-800 hover:border-amber-500 bg-gray-950 transition-colors group overflow-hidden">
+              className="snap-start flex-shrink-0 w-[78%] sm:w-[calc(33.333%-0.7rem)] flex flex-col text-left border border-gray-800 hover:border-amber-500 bg-gray-950 transition-colors group">
               <div className="relative aspect-square overflow-hidden bg-gray-900">
                 <img src={cld(b.image, 700)} alt={`${b.name} bundle`} loading="lazy"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -493,23 +493,26 @@ function BundlesStrip({ onNavigate }) {
                   Save €{b.save.toFixed(2)}
                 </span>
               </div>
-              <div className="p-5 flex flex-col h-full">
-                <h3 className="font-black text-lg uppercase tracking-tight leading-tight">{b.name}</h3>
-                <p className="text-gray-500 text-xs font-bold uppercase tracking-wide mb-3">{b.sub}</p>
+              <div className="p-5 flex flex-col flex-1">
+                <h3 className="font-black text-xl uppercase tracking-tight leading-tight text-white">{b.name}</h3>
+                <p className="text-amber-500/80 text-[11px] font-black uppercase tracking-wide mb-4">{b.sub}</p>
 
-                <div className="flex items-center gap-2 mb-4 text-gray-500 text-xs">
-                  <span>{b.items}</span>
+                <div className="inline-flex items-center gap-1.5 mb-4 bg-white/5 border border-white/10 rounded-sm px-2.5 py-1.5 w-fit">
+                  <Check size={12} className="text-amber-500 flex-shrink-0" />
+                  <span className="text-gray-200 text-xs font-bold">{b.items}</span>
                 </div>
 
-                <p className="text-gray-500 text-xs leading-relaxed mb-5 flex-grow">{b.desc}</p>
+                <p className="text-gray-400 text-sm leading-relaxed mb-5 flex-grow">{b.desc}</p>
 
-                <div className="flex items-baseline gap-2 mb-1">
-                  <span className="text-2xl font-black">€{b.price.toFixed(2)}</span>
-                  <span className="text-gray-600 line-through text-sm">€{b.compareAt.toFixed(2)}</span>
+                <div className="border-t border-white/10 pt-4">
+                  <div className="flex items-baseline gap-2 mb-2.5">
+                    <span className="text-3xl font-black text-white">€{b.price.toFixed(2)}</span>
+                    <span className="text-gray-500 line-through text-sm">€{b.compareAt.toFixed(2)}</span>
+                  </div>
+                  <span className="inline-flex items-center justify-center gap-1.5 w-full bg-amber-500 group-hover:bg-amber-400 text-black text-xs font-black uppercase tracking-wide py-2.5 transition-colors">
+                    Build this kit <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                  </span>
                 </div>
-                <span className="inline-flex items-center gap-1.5 text-amber-500 text-[11px] font-black uppercase tracking-wide group-hover:gap-2.5 transition-all">
-                  Build this kit <ArrowRight size={12} />
-                </span>
               </div>
             </button>
           ))}
